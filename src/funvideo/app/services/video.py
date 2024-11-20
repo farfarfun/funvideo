@@ -1,7 +1,9 @@
 import glob
+import os
 import random
 from typing import List
 
+from PIL import ImageFont
 from funvideo.app.models import const
 from funvideo.app.models.schema import (
     MaterialInfo,
@@ -11,9 +13,19 @@ from funvideo.app.models.schema import (
 )
 from funvideo.app.utils import utils
 from loguru import logger
-from moviepy.editor import *
+from moviepy import (
+    AudioFileClip,
+    ColorClip,
+    CompositeVideoClip,
+    TextClip,
+    VideoFileClip,
+    concatenate_videoclips,
+    CompositeAudioClip,
+    ImageClip,
+)
+
+# from moviepy.editor import *
 from moviepy.video.tools.subtitles import SubtitlesClip
-from PIL import ImageFont
 
 
 def get_bgm_file(bgm_type: str = "random", bgm_file: str = ""):

@@ -3,7 +3,6 @@ import os.path
 import re
 from os import path
 
-from edge_tts import SubMaker
 from funvideo.app.config import config
 from funvideo.app.models import const
 from funvideo.app.models.schema import VideoConcatMode, VideoParams
