@@ -108,7 +108,9 @@ def search_videos_pixabay(
     logger.info(f"searching videos: {query_url}, with proxies: {config.proxy}")
 
     try:
-        r = requests.get(query_url, proxies=config.proxy, verify=False, timeout=(30, 60))
+        r = requests.get(
+            query_url, proxies=config.proxy, verify=False, timeout=(30, 60)
+        )
         response = r.json()
         video_items = []
         if "hits" not in response:
@@ -164,7 +166,15 @@ def save_video(video_url: str, save_dir: str = "") -> str:
 
     # if video does not exist, download it
     with open(video_path, "wb") as f:
-        f.write(requests.get(video_url, headers=headers, proxies=config.proxy, verify=False, timeout=(60, 240)).content)
+        f.write(
+            requests.get(
+                video_url,
+                headers=headers,
+                proxies=config.proxy,
+                verify=False,
+                timeout=(60, 240),
+            ).content
+        )
 
     if os.path.exists(video_path) and os.path.getsize(video_path) > 0:
         try:
@@ -231,14 +241,18 @@ def download_videos(
     for item in valid_video_items:
         try:
             logger.info(f"downloading video: {item.url}")
-            saved_video_path = save_video(video_url=item.url, save_dir=material_directory)
+            saved_video_path = save_video(
+                video_url=item.url, save_dir=material_directory
+            )
             if saved_video_path:
                 logger.info(f"video saved: {saved_video_path}")
                 video_paths.append(saved_video_path)
                 seconds = min(max_clip_duration, item.duration)
                 total_duration += seconds
                 if total_duration > audio_duration:
-                    logger.info(f"total duration of downloaded videos: {total_duration} seconds, skip downloading more")
+                    logger.info(
+                        f"total duration of downloaded videos: {total_duration} seconds, skip downloading more"
+                    )
                     break
         except Exception as e:
             logger.error(f"failed to download video: {utils.to_json(item)} => {str(e)}")
@@ -247,4 +261,6 @@ def download_videos(
 
 
 if __name__ == "__main__":
-    download_videos("test123", ["Money Exchange Medium"], audio_duration=100, source="pixabay")
+    download_videos(
+        "test123", ["Money Exchange Medium"], audio_duration=100, source="pixabay"
+    )

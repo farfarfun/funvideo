@@ -78,7 +78,10 @@ class RedisState(BaseState):
         if not task_data:
             return None
 
-        task = {key.decode("utf-8"): self._convert_to_original_type(value) for key, value in task_data.items()}
+        task = {
+            key.decode("utf-8"): self._convert_to_original_type(value)
+            for key, value in task_data.items()
+        }
         return task
 
     def delete_task(self, task_id: str):
@@ -112,7 +115,9 @@ _redis_db = config.app.get("redis_db", 0)
 _redis_password = config.app.get("redis_password", None)
 
 state = (
-    RedisState(host=_redis_host, port=_redis_port, db=_redis_db, password=_redis_password)
+    RedisState(
+        host=_redis_host, port=_redis_port, db=_redis_db, password=_redis_password
+    )
     if _enable_redis
     else MemoryState()
 )

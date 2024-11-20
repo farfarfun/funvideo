@@ -22,9 +22,13 @@ def create(audio_file, subtitle_file: str = ""):
         if not os.path.isdir(model_path) or not os.path.isfile(model_bin_file):
             model_path = model_size
 
-        logger.info(f"loading model: {model_path}, device: {device}, compute_type: {compute_type}")
+        logger.info(
+            f"loading model: {model_path}, device: {device}, compute_type: {compute_type}"
+        )
         try:
-            model = WhisperModel(model_size_or_path=model_path, device=device, compute_type=compute_type)
+            model = WhisperModel(
+                model_size_or_path=model_path, device=device, compute_type=compute_type
+            )
         except Exception as e:
             logger.error(
                 f"failed to load model: {e} \n\n"
@@ -48,7 +52,9 @@ def create(audio_file, subtitle_file: str = ""):
         vad_parameters=dict(min_silence_duration_ms=500),
     )
 
-    logger.info(f"detected language: '{info.language}', probability: {info.language_probability:.2f}")
+    logger.info(
+        f"detected language: '{info.language}', probability: {info.language_probability:.2f}"
+    )
 
     start = timer()
     subtitles = []
@@ -61,7 +67,9 @@ def create(audio_file, subtitle_file: str = ""):
         msg = "[%.2fs -> %.2fs] %s" % (seg_start, seg_end, seg_text)
         logger.debug(msg)
 
-        subtitles.append({"msg": seg_text, "start_time": seg_start, "end_time": seg_end})
+        subtitles.append(
+            {"msg": seg_text, "start_time": seg_start, "end_time": seg_end}
+        )
 
     for segment in segments:
         words_idx = 0
@@ -114,7 +122,11 @@ def create(audio_file, subtitle_file: str = ""):
     for subtitle in subtitles:
         text = subtitle.get("msg")
         if text:
-            lines.append(utils.text_to_srt(idx, text, subtitle.get("start_time"), subtitle.get("end_time")))
+            lines.append(
+                utils.text_to_srt(
+                    idx, text, subtitle.get("start_time"), subtitle.get("end_time")
+                )
+            )
             idx += 1
 
     sub = "\n".join(lines) + "\n"
@@ -196,9 +208,9 @@ def correct(subtitle_file, video_script):
 
             while next_subtitle_index < len(subtitle_items):
                 next_subtitle = subtitle_items[next_subtitle_index][2].strip()
-                if similarity(script_line, combined_subtitle + " " + next_subtitle) > similarity(
-                    script_line, combined_subtitle
-                ):
+                if similarity(
+                    script_line, combined_subtitle + " " + next_subtitle
+                ) > similarity(script_line, combined_subtitle):
                     combined_subtitle += " " + next_subtitle
                     end_time = subtitle_items[next_subtitle_index][1].split(" --> ")[1]
                     next_subtitle_index += 1
@@ -206,7 +218,9 @@ def correct(subtitle_file, video_script):
                     break
 
             if similarity(script_line, combined_subtitle) > 0.8:
-                logger.warning(f"Merged/Corrected - Script: {script_line}, Subtitle: {combined_subtitle}")
+                logger.warning(
+                    f"Merged/Corrected - Script: {script_line}, Subtitle: {combined_subtitle}"
+                )
                 new_subtitle_items.append(
                     (
                         len(new_subtitle_items) + 1,
@@ -216,7 +230,9 @@ def correct(subtitle_file, video_script):
                 )
                 corrected = True
             else:
-                logger.warning(f"Mismatch - Script: {script_line}, Subtitle: {combined_subtitle}")
+                logger.warning(
+                    f"Mismatch - Script: {script_line}, Subtitle: {combined_subtitle}"
+                )
                 new_subtitle_items.append(
                     (
                         len(new_subtitle_items) + 1,

@@ -22,7 +22,12 @@ st.set_page_config(
 
 from funvideo.app.config import config
 from funvideo.app.models.const import FILE_TYPE_IMAGES, FILE_TYPE_VIDEOS
-from funvideo.app.models.schema import MaterialInfo, VideoAspect, VideoConcatMode, VideoParams
+from funvideo.app.models.schema import (
+    MaterialInfo,
+    VideoAspect,
+    VideoConcatMode,
+    VideoParams,
+)
 from funvideo.app.services import llm, voice
 from funvideo.app.services import task as tm
 from funvideo.app.utils import utils
@@ -173,14 +178,18 @@ if not config.app.get("hide_config", False):
                 if code == st.session_state["ui_language"]:
                     selected_index = i
 
-            selected_language = st.selectbox(tr("Language"), options=display_languages, index=selected_index)
+            selected_language = st.selectbox(
+                tr("Language"), options=display_languages, index=selected_index
+            )
             if selected_language:
                 code = selected_language.split(" - ")[0].strip()
                 st.session_state["ui_language"] = code
                 config.ui["language"] = code
 
             # 是否禁用日志显示
-            hide_log = st.checkbox(tr("Hide Log"), value=config.app.get("hide_log", False))
+            hide_log = st.checkbox(
+                tr("Hide Log"), value=config.app.get("hide_log", False)
+            )
             config.ui["hide_log"] = hide_log
 
         with middle_config_panel:
@@ -222,7 +231,9 @@ if not config.app.get("hide_config", False):
             config.app["llm_provider"] = llm_provider
 
             llm_api_key = config.app.get(f"{llm_provider}_api_key", "")
-            llm_secret_key = config.app.get(f"{llm_provider}_secret_key", "")  # only for baidu ernie
+            llm_secret_key = config.app.get(
+                f"{llm_provider}_secret_key", ""
+            )  # only for baidu ernie
             llm_base_url = config.app.get(f"{llm_provider}_base_url", "")
             llm_model_name = config.app.get(f"{llm_provider}_model_name", "")
             llm_account_id = config.app.get(f"{llm_provider}_account_id", "")
@@ -268,7 +279,9 @@ if not config.app.get("hide_config", False):
                            """
             if llm_provider == "oneapi":
                 if not llm_model_name:
-                    llm_model_name = "claude-3-5-sonnet-20240620"  # 默认模型，可以根据需要调整
+                    llm_model_name = (
+                        "claude-3-5-sonnet-20240620"  # 默认模型，可以根据需要调整
+                    )
                 with llm_helper:
                     tips = """
                         ##### OneAPI 配置说明
@@ -350,7 +363,9 @@ if not config.app.get("hide_config", False):
                 )
                 st.info(tips)
 
-            st_llm_api_key = st.text_input(tr("API Key"), value=llm_api_key, type="password")
+            st_llm_api_key = st.text_input(
+                tr("API Key"), value=llm_api_key, type="password"
+            )
             st_llm_base_url = st.text_input(tr("Base Url"), value=llm_base_url)
             st_llm_model_name = ""
             if llm_provider != "ernie":
@@ -371,11 +386,15 @@ if not config.app.get("hide_config", False):
             if st_llm_model_name:
                 config.app[f"{llm_provider}_model_name"] = st_llm_model_name
             if llm_provider == "ernie":
-                st_llm_secret_key = st.text_input(tr("Secret Key"), value=llm_secret_key, type="password")
+                st_llm_secret_key = st.text_input(
+                    tr("Secret Key"), value=llm_secret_key, type="password"
+                )
                 config.app[f"{llm_provider}_secret_key"] = st_llm_secret_key
 
             if llm_provider == "cloudflare":
-                st_llm_account_id = st.text_input(tr("Account ID"), value=llm_account_id)
+                st_llm_account_id = st.text_input(
+                    tr("Account ID"), value=llm_account_id
+                )
                 if st_llm_account_id:
                     config.app[f"{llm_provider}_account_id"] = st_llm_account_id
 
@@ -394,11 +413,15 @@ if not config.app.get("hide_config", False):
                     config.app[cfg_key] = value.split(",")
 
             pexels_api_key = get_keys_from_config("pexels_api_keys")
-            pexels_api_key = st.text_input(tr("Pexels API Key"), value=pexels_api_key, type="password")
+            pexels_api_key = st.text_input(
+                tr("Pexels API Key"), value=pexels_api_key, type="password"
+            )
             save_keys_to_config("pexels_api_keys", pexels_api_key)
 
             pixabay_api_key = get_keys_from_config("pixabay_api_keys")
-            pixabay_api_key = st.text_input(tr("Pixabay API Key"), value=pixabay_api_key, type="password")
+            pixabay_api_key = st.text_input(
+                tr("Pixabay API Key"), value=pixabay_api_key, type="password"
+            )
             save_keys_to_config("pixabay_api_keys", pixabay_api_key)
 
 panel = st.columns(3)
@@ -412,7 +435,9 @@ uploaded_files = []
 with left_panel:
     with st.container(border=True):
         st.write(tr("Video Script Settings"))
-        params.video_subject = st.text_input(tr("Video Subject"), value=st.session_state["video_subject"]).strip()
+        params.video_subject = st.text_input(
+            tr("Video Subject"), value=st.session_state["video_subject"]
+        ).strip()
 
         video_languages = [
             (tr("Auto Detect"), ""),
@@ -428,14 +453,20 @@ with left_panel:
         )
         params.video_language = video_languages[selected_index][1]
 
-        if st.button(tr("Generate Video Script and Keywords"), key="auto_generate_script"):
+        if st.button(
+            tr("Generate Video Script and Keywords"), key="auto_generate_script"
+        ):
             with st.spinner(tr("Generating Video Script and Keywords")):
-                script = llm.generate_script(video_subject=params.video_subject, language=params.video_language)
+                script = llm.generate_script(
+                    video_subject=params.video_subject, language=params.video_language
+                )
                 terms = llm.generate_terms(params.video_subject, script)
                 st.session_state["video_script"] = script
                 st.session_state["video_terms"] = ", ".join(terms)
 
-        params.video_script = st.text_area(tr("Video Script"), value=st.session_state["video_script"], height=280)
+        params.video_script = st.text_area(
+            tr("Video Script"), value=st.session_state["video_script"], height=280
+        )
         if st.button(tr("Generate Video Keywords"), key="auto_generate_terms"):
             if not params.video_script:
                 st.error(tr("Please Enter the Video Subject"))
@@ -445,7 +476,9 @@ with left_panel:
                 terms = llm.generate_terms(params.video_subject, params.video_script)
                 st.session_state["video_terms"] = ", ".join(terms)
 
-        params.video_terms = st.text_area(tr("Video Keywords"), value=st.session_state["video_terms"], height=50)
+        params.video_terms = st.text_area(
+            tr("Video Keywords"), value=st.session_state["video_terms"], height=50
+        )
 
 with middle_panel:
     with st.container(border=True):
@@ -464,7 +497,9 @@ with middle_panel:
         ]
 
         saved_video_source_name = config.app.get("video_source", "pexels")
-        saved_video_source_index = [v[1] for v in video_sources].index(saved_video_source_name)
+        saved_video_source_index = [v[1] for v in video_sources].index(
+            saved_video_source_name
+        )
 
         selected_index = st.selectbox(
             tr("Video Source"),
@@ -489,7 +524,9 @@ with middle_panel:
             options=range(len(video_concat_modes)),  # 使用索引作为内部选项值
             format_func=lambda x: video_concat_modes[x][0],  # 显示给用户的是标签
         )
-        params.video_concat_mode = VideoConcatMode(video_concat_modes[selected_index][1])
+        params.video_concat_mode = VideoConcatMode(
+            video_concat_modes[selected_index][1]
+        )
 
         video_aspect_ratios = [
             (tr("Portrait"), VideoAspect.portrait.value),
@@ -502,7 +539,9 @@ with middle_panel:
         )
         params.video_aspect = VideoAspect(video_aspect_ratios[selected_index][1])
 
-        params.video_clip_duration = st.selectbox(tr("Clip Duration"), options=[2, 3, 4, 5, 6, 7, 8, 9, 10], index=1)
+        params.video_clip_duration = st.selectbox(
+            tr("Clip Duration"), options=[2, 3, 4, 5, 6, 7, 8, 9, 10], index=1
+        )
         params.video_count = st.selectbox(
             tr("Number of Videos Generated Simultaneously"),
             options=[1, 2, 3, 4, 5],
@@ -516,7 +555,10 @@ with middle_panel:
 
         voices = voice.get_all_azure_voices(filter_locals=support_locales)
         friendly_names = {
-            v: v.replace("Female", tr("Female")).replace("Male", tr("Male")).replace("Neural", "") for v in voices
+            v: v.replace("Female", tr("Female"))
+            .replace("Male", tr("Male"))
+            .replace("Neural", "")
+            for v in voices
         }
         saved_voice_name = config.ui.get("voice_name", "")
         saved_voice_name_index = 0
@@ -524,7 +566,10 @@ with middle_panel:
             saved_voice_name_index = list(friendly_names.keys()).index(saved_voice_name)
         else:
             for i, v in enumerate(voices):
-                if v.lower().startswith(st.session_state["ui_language"].lower()) and "V2" not in v:
+                if (
+                    v.lower().startswith(st.session_state["ui_language"].lower())
+                    and "V2" not in v
+                ):
                     saved_voice_name_index = i
                     break
 
@@ -534,7 +579,9 @@ with middle_panel:
             index=saved_voice_name_index,
         )
 
-        voice_name = list(friendly_names.keys())[list(friendly_names.values()).index(selected_friendly_name)]
+        voice_name = list(friendly_names.keys())[
+            list(friendly_names.values()).index(selected_friendly_name)
+        ]
         params.voice_name = voice_name
         config.ui["voice_name"] = voice_name
 
@@ -571,8 +618,12 @@ with middle_panel:
         if voice.is_azure_v2_voice(voice_name):
             saved_azure_speech_region = config.azure.get("speech_region", "")
             saved_azure_speech_key = config.azure.get("speech_key", "")
-            azure_speech_region = st.text_input(tr("Speech Region"), value=saved_azure_speech_region)
-            azure_speech_key = st.text_input(tr("Speech Key"), value=saved_azure_speech_key, type="password")
+            azure_speech_region = st.text_input(
+                tr("Speech Region"), value=saved_azure_speech_region
+            )
+            azure_speech_key = st.text_input(
+                tr("Speech Key"), value=saved_azure_speech_key, type="password"
+            )
             config.azure["speech_region"] = azure_speech_region
             config.azure["speech_key"] = azure_speech_key
 
@@ -623,7 +674,9 @@ with right_panel:
         saved_font_name_index = 0
         if saved_font_name in font_names:
             saved_font_name_index = font_names.index(saved_font_name)
-        params.font_name = st.selectbox(tr("Font"), font_names, index=saved_font_name_index)
+        params.font_name = st.selectbox(
+            tr("Font"), font_names, index=saved_font_name_index
+        )
         config.ui["font_name"] = params.font_name
 
         subtitle_positions = [
@@ -641,7 +694,9 @@ with right_panel:
         params.subtitle_position = subtitle_positions[selected_index][1]
 
         if params.subtitle_position == "custom":
-            custom_position = st.text_input(tr("Custom Position (% from top)"), value="70.0")
+            custom_position = st.text_input(
+                tr("Custom Position (% from top)"), value="70.0"
+            )
             try:
                 params.custom_position = float(custom_position)
                 if params.custom_position < 0 or params.custom_position > 100:
@@ -652,7 +707,9 @@ with right_panel:
         font_cols = st.columns([0.3, 0.7])
         with font_cols[0]:
             saved_text_fore_color = config.ui.get("text_fore_color", "#FFFFFF")
-            params.text_fore_color = st.color_picker(tr("Font Color"), saved_text_fore_color)
+            params.text_fore_color = st.color_picker(
+                tr("Font Color"), saved_text_fore_color
+            )
             config.ui["text_fore_color"] = params.text_fore_color
 
         with font_cols[1]:
@@ -675,7 +732,11 @@ if start_button:
         scroll_to_bottom()
         st.stop()
 
-    if llm_provider != "g4f" and llm_provider != "ollama" and not config.app.get(f"{llm_provider}_api_key", ""):
+    if (
+        llm_provider != "g4f"
+        and llm_provider != "ollama"
+        and not config.app.get(f"{llm_provider}_api_key", "")
+    ):
         st.error(tr("Please Enter the LLM API Key"))
         scroll_to_bottom()
         st.stop()

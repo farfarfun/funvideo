@@ -78,33 +78,49 @@ def _generate_response(prompt: str) -> str:
             base_url = config.app.get("ernie_base_url")
             model_name = "***"
             if not secret_key:
-                raise ValueError(f"{llm_provider}: secret_key is not set, please set it in the config.toml file.")
+                raise ValueError(
+                    f"{llm_provider}: secret_key is not set, please set it in the config.toml file."
+                )
         else:
-            raise ValueError("llm_provider is not set, please set it in the config.toml file.")
+            raise ValueError(
+                "llm_provider is not set, please set it in the config.toml file."
+            )
 
         if not api_key:
-            raise ValueError(f"{llm_provider}: api_key is not set, please set it in the config.toml file.")
+            raise ValueError(
+                f"{llm_provider}: api_key is not set, please set it in the config.toml file."
+            )
         if not model_name:
-            raise ValueError(f"{llm_provider}: model_name is not set, please set it in the config.toml file.")
+            raise ValueError(
+                f"{llm_provider}: model_name is not set, please set it in the config.toml file."
+            )
         if not base_url:
-            raise ValueError(f"{llm_provider}: base_url is not set, please set it in the config.toml file.")
+            raise ValueError(
+                f"{llm_provider}: base_url is not set, please set it in the config.toml file."
+            )
 
         if llm_provider == "qwen":
             import dashscope
             from dashscope.api_entities.dashscope_response import GenerationResponse
 
             dashscope.api_key = api_key
-            response = dashscope.Generation.call(model=model_name, messages=[{"role": "user", "content": prompt}])
+            response = dashscope.Generation.call(
+                model=model_name, messages=[{"role": "user", "content": prompt}]
+            )
             if response:
                 if isinstance(response, GenerationResponse):
                     status_code = response.status_code
                     if status_code != 200:
-                        raise Exception(f'[{llm_provider}] returned an error response: "{response}"')
+                        raise Exception(
+                            f'[{llm_provider}] returned an error response: "{response}"'
+                        )
 
                     content = response["output"]["text"]
                     return content.replace("\n", "")
                 else:
-                    raise Exception(f'[{llm_provider}] returned an invalid response: "{response}"')
+                    raise Exception(
+                        f'[{llm_provider}] returned an invalid response: "{response}"'
+                    )
             else:
                 raise Exception(f"[{llm_provider}] returned an empty response")
 
@@ -180,7 +196,9 @@ def _generate_response(prompt: str) -> str:
                 "client_secret": secret_key,
             }
             access_token = (
-                requests.post("https://aip.baidubce.com/oauth/2.0/token", params=params).json().get("access_token")
+                requests.post("https://aip.baidubce.com/oauth/2.0/token", params=params)
+                .json()
+                .get("access_token")
             )
             url = f"{base_url}?access_token={access_token}"
 
@@ -197,7 +215,9 @@ def _generate_response(prompt: str) -> str:
             )
             headers = {"Content-Type": "application/json"}
 
-            response = requests.request("POST", url, headers=headers, data=payload).json()
+            response = requests.request(
+                "POST", url, headers=headers, data=payload
+            ).json()
             return response.get("result")
 
         if llm_provider == "azure":
@@ -212,7 +232,9 @@ def _generate_response(prompt: str) -> str:
                 base_url=base_url,
             )
 
-        response = client.chat.completions.create(model=model_name, messages=[{"role": "user", "content": prompt}])
+        response = client.chat.completions.create(
+            model=model_name, messages=[{"role": "user", "content": prompt}]
+        )
         if response:
             if isinstance(response, ChatCompletion):
                 content = response.choices[0].message.content
@@ -229,7 +251,9 @@ def _generate_response(prompt: str) -> str:
     return content.replace("\n", "")
 
 
-def generate_script(video_subject: str, language: str = "", paragraph_number: int = 1) -> str:
+def generate_script(
+    video_subject: str, language: str = "", paragraph_number: int = 1
+) -> str:
     prompt = f"""
 # Role: Video Script Generator
 
@@ -334,7 +358,9 @@ Please note that you must use English for generating video search terms; Chinese
         try:
             response = _generate_response(prompt)
             search_terms = json.loads(response)
-            if not isinstance(search_terms, list) or not all(isinstance(term, str) for term in search_terms):
+            if not isinstance(search_terms, list) or not all(
+                isinstance(term, str) for term in search_terms
+            ):
                 logger.error("response is not a list of strings.")
                 continue
 
@@ -360,9 +386,13 @@ Please note that you must use English for generating video search terms; Chinese
 
 if __name__ == "__main__":
     video_subject = "生命的意义是什么"
-    script = generate_script(video_subject=video_subject, language="zh-CN", paragraph_number=1)
+    script = generate_script(
+        video_subject=video_subject, language="zh-CN", paragraph_number=1
+    )
     print("######################")
     print(script)
-    search_terms = generate_terms(video_subject=video_subject, video_script=script, amount=5)
+    search_terms = generate_terms(
+        video_subject=video_subject, video_script=script, amount=5
+    )
     print("######################")
     print(search_terms)

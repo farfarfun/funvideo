@@ -43,23 +43,31 @@ _max_concurrent_tasks = config.app.get("max_concurrent_tasks", 5)
 redis_url = f"redis://:{_redis_password}@{_redis_host}:{_redis_port}/{_redis_db}"
 # 根据配置选择合适的任务管理器
 if _enable_redis:
-    task_manager = RedisTaskManager(max_concurrent_tasks=_max_concurrent_tasks, redis_url=redis_url)
+    task_manager = RedisTaskManager(
+        max_concurrent_tasks=_max_concurrent_tasks, redis_url=redis_url
+    )
 else:
     task_manager = InMemoryTaskManager(max_concurrent_tasks=_max_concurrent_tasks)
 
 
 @router.post("/videos", response_model=TaskResponse, summary="Generate a short video")
-def create_video(background_tasks: BackgroundTasks, request: Request, body: TaskVideoRequest):
+def create_video(
+    background_tasks: BackgroundTasks, request: Request, body: TaskVideoRequest
+):
     return create_task(request, body, stop_at="video")
 
 
 @router.post("/subtitle", response_model=TaskResponse, summary="Generate subtitle only")
-def create_subtitle(background_tasks: BackgroundTasks, request: Request, body: SubtitleRequest):
+def create_subtitle(
+    background_tasks: BackgroundTasks, request: Request, body: SubtitleRequest
+):
     return create_task(request, body, stop_at="subtitle")
 
 
 @router.post("/audio", response_model=TaskResponse, summary="Generate audio only")
-def create_audio(background_tasks: BackgroundTasks, request: Request, body: AudioRequest):
+def create_audio(
+    background_tasks: BackgroundTasks, request: Request, body: AudioRequest
+):
     return create_task(request, body, stop_at="audio")
 
 
@@ -81,10 +89,14 @@ def create_task(
         logger.success(f"Task created: {utils.to_json(task)}")
         return utils.get_response(200, task)
     except ValueError as e:
-        raise HttpException(task_id=task_id, status_code=400, message=f"{request_id}: {str(e)}")
+        raise HttpException(
+            task_id=task_id, status_code=400, message=f"{request_id}: {str(e)}"
+        )
 
 
-@router.get("/tasks/{task_id}", response_model=TaskQueryResponse, summary="Query task status")
+@router.get(
+    "/tasks/{task_id}", response_model=TaskQueryResponse, summary="Query task status"
+)
 def get_task(
     request: Request,
     task_id: str = Path(..., description="Task ID"),
@@ -122,7 +134,9 @@ def get_task(
             task["combined_videos"] = urls
         return utils.get_response(200, task)
 
-    raise HttpException(task_id=task_id, status_code=404, message=f"{request_id}: task not found")
+    raise HttpException(
+        task_id=task_id, status_code=404, message=f"{request_id}: task not found"
+    )
 
 
 @router.delete(
@@ -143,10 +157,14 @@ def delete_video(request: Request, task_id: str = Path(..., description="Task ID
         logger.success(f"video deleted: {utils.to_json(task)}")
         return utils.get_response(200)
 
-    raise HttpException(task_id=task_id, status_code=404, message=f"{request_id}: task not found")
+    raise HttpException(
+        task_id=task_id, status_code=404, message=f"{request_id}: task not found"
+    )
 
 
-@router.get("/musics", response_model=BgmRetrieveResponse, summary="Retrieve local BGM files")
+@router.get(
+    "/musics", response_model=BgmRetrieveResponse, summary="Retrieve local BGM files"
+)
 def get_bgm_list(request: Request):
     suffix = "*.mp3"
     song_dir = utils.song_dir()
@@ -183,7 +201,9 @@ def upload_bgm_file(request: Request, file: UploadFile = File(...)):
         response = {"file": save_path}
         return utils.get_response(200, response)
 
-    raise HttpException("", status_code=400, message=f"{request_id}: Only *.mp3 files can be uploaded")
+    raise HttpException(
+        "", status_code=400, message=f"{request_id}: Only *.mp3 files can be uploaded"
+    )
 
 
 @router.get("/stream/{file_path:path}")
@@ -217,7 +237,9 @@ async def stream_video(request: Request, file_path: str):
                 remaining -= len(data)
                 yield data
 
-    response = StreamingResponse(file_iterator(video_path, start, length), media_type="video/mp4")
+    response = StreamingResponse(
+        file_iterator(video_path, start, length), media_type="video/mp4"
+    )
     response.headers["Content-Range"] = f"bytes {start}-{end}/{video_size}"
     response.headers["Accept-Ranges"] = "bytes"
     response.headers["Content-Length"] = str(length)

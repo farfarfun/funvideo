@@ -9,7 +9,9 @@ from loguru import logger
 def __init_logger():
     # _log_file = utils.storage_dir("logs/server.log")
     _lvl = config.log_level
-    root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+    root_dir = os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+    )
 
     def format_record(record):
         # 获取日志记录中的文件全路径

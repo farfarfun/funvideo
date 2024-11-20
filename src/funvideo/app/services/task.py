@@ -37,7 +37,9 @@ def generate_terms(task_id, params, video_script):
     logger.info("\n\n## generating video terms")
     video_terms = params.video_terms
     if not video_terms:
-        video_terms = llm.generate_terms(video_subject=params.video_subject, video_script=video_script, amount=5)
+        video_terms = llm.generate_terms(
+            video_subject=params.video_subject, video_script=video_script, amount=5
+        )
     else:
         if isinstance(video_terms, str):
             video_terms = [term.strip() for term in re.split(r"[,，]", video_terms)]
@@ -101,7 +103,9 @@ def generate_subtitle(task_id, params, video_script, sub_maker, audio_file):
 
     subtitle_fallback = False
     if subtitle_provider == "edge":
-        voice.create_subtitle(text=video_script, sub_maker=sub_maker, subtitle_file=subtitle_path)
+        voice.create_subtitle(
+            text=video_script, sub_maker=sub_maker, subtitle_file=subtitle_path
+        )
         if not os.path.exists(subtitle_path):
             subtitle_fallback = True
             logger.warning("subtitle file not found, fallback to whisper")
@@ -122,10 +126,14 @@ def generate_subtitle(task_id, params, video_script, sub_maker, audio_file):
 def get_video_materials(task_id, params, video_terms, audio_duration):
     if params.video_source == "local":
         logger.info("\n\n## preprocess local materials")
-        materials = video.preprocess_video(materials=params.video_materials, clip_duration=params.video_clip_duration)
+        materials = video.preprocess_video(
+            materials=params.video_materials, clip_duration=params.video_clip_duration
+        )
         if not materials:
             sm.state.update_task(task_id, state=const.TASK_STATE_FAILED)
-            logger.error("no valid materials found, please check the materials and try again.")
+            logger.error(
+                "no valid materials found, please check the materials and try again."
+            )
             return None
         return [material_info.url for material_info in materials]
     else:
@@ -148,15 +156,21 @@ def get_video_materials(task_id, params, video_terms, audio_duration):
         return downloaded_videos
 
 
-def generate_final_videos(task_id, params, downloaded_videos, audio_file, subtitle_path):
+def generate_final_videos(
+    task_id, params, downloaded_videos, audio_file, subtitle_path
+):
     final_video_paths = []
     combined_video_paths = []
-    video_concat_mode = params.video_concat_mode if params.video_count == 1 else VideoConcatMode.random
+    video_concat_mode = (
+        params.video_concat_mode if params.video_count == 1 else VideoConcatMode.random
+    )
 
     _progress = 50
     for i in range(params.video_count):
         index = i + 1
-        combined_video_path = path.join(utils.task_dir(task_id), f"combined-{index}.mp4")
+        combined_video_path = path.join(
+            utils.task_dir(task_id), f"combined-{index}.mp4"
+        )
         logger.info(f"\n\n## combining video: {index} => {combined_video_path}")
         video.combine_videos(
             combined_video_path=combined_video_path,
@@ -207,7 +221,9 @@ def start(task_id, params: VideoParams, stop_at: str = "video"):
     sm.state.update_task(task_id, state=const.TASK_STATE_PROCESSING, progress=10)
 
     if stop_at == "script":
-        sm.state.update_task(task_id, state=const.TASK_STATE_COMPLETE, progress=100, script=video_script)
+        sm.state.update_task(
+            task_id, state=const.TASK_STATE_COMPLETE, progress=100, script=video_script
+        )
         return {"script": video_script}
 
     # 2. Generate terms
@@ -221,13 +237,17 @@ def start(task_id, params: VideoParams, stop_at: str = "video"):
     save_script_data(task_id, video_script, video_terms, params)
 
     if stop_at == "terms":
-        sm.state.update_task(task_id, state=const.TASK_STATE_COMPLETE, progress=100, terms=video_terms)
+        sm.state.update_task(
+            task_id, state=const.TASK_STATE_COMPLETE, progress=100, terms=video_terms
+        )
         return {"script": video_script, "terms": video_terms}
 
     sm.state.update_task(task_id, state=const.TASK_STATE_PROCESSING, progress=20)
 
     # 3. Generate audio
-    audio_file, audio_duration, sub_maker = generate_audio(task_id, params, video_script)
+    audio_file, audio_duration, sub_maker = generate_audio(
+        task_id, params, video_script
+    )
     if not audio_file:
         sm.state.update_task(task_id, state=const.TASK_STATE_FAILED)
         return
@@ -244,7 +264,9 @@ def start(task_id, params: VideoParams, stop_at: str = "video"):
         return {"audio_file": audio_file, "audio_duration": audio_duration}
 
     # 4. Generate subtitle
-    subtitle_path = generate_subtitle(task_id, params, video_script, sub_maker, audio_file)
+    subtitle_path = generate_subtitle(
+        task_id, params, video_script, sub_maker, audio_file
+    )
 
     if stop_at == "subtitle":
         sm.state.update_task(
@@ -258,7 +280,9 @@ def start(task_id, params: VideoParams, stop_at: str = "video"):
     sm.state.update_task(task_id, state=const.TASK_STATE_PROCESSING, progress=40)
 
     # 5. Get video materials
-    downloaded_videos = get_video_materials(task_id, params, video_terms, audio_duration)
+    downloaded_videos = get_video_materials(
+        task_id, params, video_terms, audio_duration
+    )
     if not downloaded_videos:
         sm.state.update_task(task_id, state=const.TASK_STATE_FAILED)
         return
@@ -283,7 +307,9 @@ def start(task_id, params: VideoParams, stop_at: str = "video"):
         sm.state.update_task(task_id, state=const.TASK_STATE_FAILED)
         return
 
-    logger.success(f"task {task_id} finished, generated {len(final_video_paths)} videos.")
+    logger.success(
+        f"task {task_id} finished, generated {len(final_video_paths)} videos."
+    )
 
     kwargs = {
         "videos": final_video_paths,
@@ -295,7 +321,9 @@ def start(task_id, params: VideoParams, stop_at: str = "video"):
         "subtitle_path": subtitle_path,
         "materials": downloaded_videos,
     }
-    sm.state.update_task(task_id, state=const.TASK_STATE_COMPLETE, progress=100, **kwargs)
+    sm.state.update_task(
+        task_id, state=const.TASK_STATE_COMPLETE, progress=100, **kwargs
+    )
     return kwargs
 
 
