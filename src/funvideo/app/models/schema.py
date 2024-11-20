@@ -99,7 +99,7 @@ class VideoParams(BaseModel):
 
     video_subject: str
     video_script: str = ""  # 用于生成视频的脚本
-    video_terms: Optional[str | list] = None  # 用于生成视频的关键词
+    video_terms: Optional[str or list] = None  # 用于生成视频的关键词
     video_aspect: Optional[VideoAspect] = VideoAspect.portrait.value
     video_concat_mode: Optional[VideoConcatMode] = VideoConcatMode.random.value
     video_clip_duration: Optional[int] = 5
