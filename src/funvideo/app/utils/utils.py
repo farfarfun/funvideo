@@ -1,7 +1,6 @@
 import json
 import locale
 import os
-import platform
 import threading
 from typing import Any
 from uuid import uuid4
