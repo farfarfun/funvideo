@@ -23,6 +23,7 @@ from moviepy import (
     CompositeAudioClip,
     ImageClip,
 )
+import moviepy.video.fx as vfx
 
 # from moviepy.editor import *
 from moviepy.video.tools.subtitles import SubtitlesClip
@@ -76,7 +77,7 @@ def combine_videos(
 
         while start_time < clip_duration:
             end_time = min(start_time + max_clip_duration, clip_duration)
-            split_clip = clip.subclip(start_time, end_time)
+            split_clip = clip.with_subclip(start_time, end_time)
             raw_clips.append(split_clip)
             # logger.info(f"splitting from {start_time:.2f} to {end_time:.2f}, clip duration {clip_duration:.2f}, split_clip duration {split_clip.duration:.2f}")
             start_time = end_time
@@ -92,11 +93,11 @@ def combine_videos(
         for clip in raw_clips:
             # Check if clip is longer than the remaining audio
             if (audio_duration - video_duration) < clip.duration:
-                clip = clip.subclip(0, (audio_duration - video_duration))
+                clip = clip.with_subclip(0, (audio_duration - video_duration))
             # Only shorten clips if the calculated clip length (req_dur) is shorter than the actual clip to prevent still image
             elif req_dur < clip.duration:
-                clip = clip.subclip(0, req_dur)
-            clip = clip.set_fps(30)
+                clip = clip.with_subclip(0, req_dur)
+            clip = clip.with_fps(30)
 
             # Not all videos are same size, so we need to resize them
             clip_w, clip_h = clip.size
@@ -106,7 +107,10 @@ def combine_videos(
 
                 if clip_ratio == video_ratio:
                     # 等比例缩放
-                    clip = clip.resize((video_width, video_height))
+                    # clip = clip.resize((video_width, video_height))
+                    clip = clip.with_effects(
+                        [vfx.Resize(new_size=(video_width, video_height))]
+                    )
                 else:
                     # 等比缩放视频
                     if clip_ratio > video_ratio:
@@ -118,15 +122,18 @@ def combine_videos(
 
                     new_width = int(clip_w * scale_factor)
                     new_height = int(clip_h * scale_factor)
-                    clip_resized = clip.resize(newsize=(new_width, new_height))
+                    # clip_resized = clip.resize(newsize=(new_width, new_height))
+                    clip_resized = clip.with_effects(
+                        [vfx.Resize(new_size=(new_width, new_height))]
+                    )
 
                     background = ColorClip(
                         size=(video_width, video_height), color=(0, 0, 0)
                     )
                     clip = CompositeVideoClip(
                         [
-                            background.set_duration(clip.duration),
-                            clip_resized.set_position("center"),
+                            background.with_duration(clip.duration),
+                            clip_resized.with_position("center"),
                         ]
                     )
 
@@ -135,13 +142,13 @@ def combine_videos(
                 )
 
             if clip.duration > max_clip_duration:
-                clip = clip.subclip(0, max_clip_duration)
+                clip = clip.with_subclip(0, max_clip_duration)
 
             clips.append(clip)
             video_duration += clip.duration
 
     video_clip = concatenate_videoclips(clips)
-    video_clip = video_clip.set_fps(30)
+    video_clip = video_clip.with_fps(30)
     logger.info("writing")
     # https://github.com/harry0703/MoneyPrinterTurbo/issues/111#issuecomment-2032354030
     video_clip.write_videofile(
@@ -263,13 +270,13 @@ def generate_video(
             print_cmd=False,
         )
         duration = subtitle_item[0][1] - subtitle_item[0][0]
-        _clip = _clip.set_start(subtitle_item[0][0])
-        _clip = _clip.set_end(subtitle_item[0][1])
-        _clip = _clip.set_duration(duration)
+        _clip = _clip.with_start(subtitle_item[0][0])
+        _clip = _clip.with_end(subtitle_item[0][1])
+        _clip = _clip.with_duration(duration)
         if params.subtitle_position == "bottom":
-            _clip = _clip.set_position(("center", video_height * 0.95 - _clip.h))
+            _clip = _clip.with_position(("center", video_height * 0.95 - _clip.h))
         elif params.subtitle_position == "top":
-            _clip = _clip.set_position(("center", video_height * 0.05))
+            _clip = _clip.with_position(("center", video_height * 0.05))
         elif params.subtitle_position == "custom":
             # 确保字幕完全在屏幕内
             margin = 10  # 额外的边距，单位为像素
@@ -277,9 +284,9 @@ def generate_video(
             min_y = margin
             custom_y = (video_height - _clip.h) * (params.custom_position / 100)
             custom_y = max(min_y, min(custom_y, max_y))  # 限制 y 值在有效范围内
-            _clip = _clip.set_position(("center", custom_y))
+            _clip = _clip.with_position(("center", custom_y))
         else:  # center
-            _clip = _clip.set_position(("center", "center"))
+            _clip = _clip.with_position(("center", "center"))
         return _clip
 
     video_clip = VideoFileClip(video_path)
@@ -304,7 +311,7 @@ def generate_video(
         except Exception as e:
             logger.error(f"failed to add bgm: {str(e)}")
 
-    video_clip = video_clip.set_audio(audio_clip)
+    video_clip = video_clip.with_audio(audio_clip)
     video_clip.write_videofile(
         output_file,
         audio_codec="aac",
@@ -340,15 +347,16 @@ def preprocess_video(materials: List[MaterialInfo], clip_duration=4):
             # 创建一个图片剪辑，并设置持续时间为3秒钟
             clip = (
                 ImageClip(material.url)
-                .set_duration(clip_duration)
-                .set_position("center")
+                .with_duration(clip_duration)
+                .with_position("center")
             )
             # 使用resize方法来添加缩放效果。这里使用了lambda函数来使得缩放效果随时间变化。
             # 假设我们想要从原始大小逐渐放大到120%的大小。
             # t代表当前时间，clip.duration为视频总时长，这里是3秒。
             # 注意：1 表示100%的大小，所以1.2表示120%的大小
-            zoom_clip = clip.resize(
-                lambda t: 1 + (clip_duration * 0.03) * (t / clip.duration)
+            # zoom_clip = clip.resize(lambda t: 1 + (clip_duration * 0.03) * (t / clip.duration))
+            zoom_clip = clip.with_effects(
+                [vfx.Resize(lambda t: 1 + (clip_duration * 0.03) * (t / clip.duration))]
             )
 
             # 如果需要，可以创建一个包含缩放剪辑的复合视频剪辑
