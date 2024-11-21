@@ -12,7 +12,7 @@ from funvideo.app.models.schema import (
     VideoParams,
 )
 from funvideo.app.utils import utils
-from loguru import logger
+
 from moviepy import (
     AudioFileClip,
     ColorClip,
@@ -25,8 +25,11 @@ from moviepy import (
 )
 import moviepy.video.fx as vfx
 
-# from moviepy.editor import *
 from moviepy.video.tools.subtitles import SubtitlesClip
+
+from funutil import getLogger
+
+logger = getLogger("funvideo")
 
 
 def get_bgm_file(bgm_type: str = "random", bgm_file: str = ""):

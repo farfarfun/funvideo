@@ -1,7 +1,8 @@
 import uvicorn
-from loguru import logger
-
+from funutil import getLogger
 from app.config import config
+
+logger = getLogger("funvideo")
 
 if __name__ == "__main__":
     logger.info(

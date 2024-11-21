@@ -9,7 +9,10 @@ from funvideo.app.models.schema import VideoConcatMode, VideoParams
 from funvideo.app.services import llm, material, subtitle, video, voice
 from funvideo.app.services import state as sm
 from funvideo.app.utils import utils
-from loguru import logger
+
+from funutil import getLogger
+
+logger = getLogger("funvideo")
 
 
 def generate_script(task_id, params):

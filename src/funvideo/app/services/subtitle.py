@@ -6,8 +6,10 @@ from timeit import default_timer as timer
 from faster_whisper import WhisperModel
 from funvideo.app.config import config
 from funvideo.app.utils import utils
-from loguru import logger
 
+from funutil import getLogger
+
+logger = getLogger("funvideo")
 model_size = config.whisper.get("model_size", "large-v3")
 device = config.whisper.get("device", "cpu")
 compute_type = config.whisper.get("compute_type", "int8")

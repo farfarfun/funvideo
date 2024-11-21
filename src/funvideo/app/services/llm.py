@@ -4,10 +4,12 @@ import re
 from typing import List
 
 from funvideo.app.config import config
-from loguru import logger
 from openai import AzureOpenAI, OpenAI
 from openai.types.chat import ChatCompletion
 
+from funutil import getLogger
+
+logger = getLogger("funvideo")
 _max_retries = 5
 
 

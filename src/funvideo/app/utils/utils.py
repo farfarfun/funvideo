@@ -7,8 +7,10 @@ from uuid import uuid4
 
 import urllib3
 from funvideo.app.models import const
-from loguru import logger
 
+from funutil import getLogger
+
+logger = getLogger("funvideo")
 urllib3.disable_warnings()
 
 

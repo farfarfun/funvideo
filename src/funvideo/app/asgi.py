@@ -11,7 +11,10 @@ from funvideo.app.config import config
 from funvideo.app.models.exception import HttpException
 from funvideo.app.router import root_api_router
 from funvideo.app.utils import utils
-from loguru import logger
+
+from funutil import getLogger
+
+logger = getLogger("funvideo")
 
 
 def exception_handler(request: Request, e: HttpException):

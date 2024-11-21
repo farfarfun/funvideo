@@ -9,8 +9,12 @@ from edge_tts import SubMaker, submaker
 from edge_tts.submaker import mktimestamp
 from funvideo.app.config import config
 from funvideo.app.utils import utils
-from loguru import logger
+
 from moviepy.video.tools import subtitles
+
+from funutil import getLogger
+
+logger = getLogger("funvideo")
 
 
 def get_all_azure_voices(filter_locals=None) -> list[str]:

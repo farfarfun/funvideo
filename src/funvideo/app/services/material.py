@@ -7,9 +7,12 @@ import requests
 from funvideo.app.config import config
 from funvideo.app.models.schema import MaterialInfo, VideoAspect, VideoConcatMode
 from funvideo.app.utils import utils
-from loguru import logger
+
 from moviepy.video.io.VideoFileClip import VideoFileClip
 
+from funutil import getLogger
+
+logger = getLogger("funvideo")
 requested_count = 0
 
 

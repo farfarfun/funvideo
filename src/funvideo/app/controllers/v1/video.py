@@ -27,8 +27,11 @@ from funvideo.app.models.schema import (
 from funvideo.app.services import state as sm
 from funvideo.app.services import task as tm
 from funvideo.app.utils import utils
-from loguru import logger
 
+
+from funutil import getLogger
+
+logger = getLogger("funvideo")
 # 认证依赖项
 # router = new_router(dependencies=[Depends(base.verify_token)])
 router = new_router()

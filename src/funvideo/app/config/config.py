@@ -3,8 +3,10 @@ import shutil
 import socket
 
 import toml
-from loguru import logger
 
+from funutil import getLogger
+
+logger = getLogger("funvideo")
 root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 config_file = "./config.toml"
 

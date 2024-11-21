@@ -1,7 +1,10 @@
 import traceback
 from typing import Any
 
-from loguru import logger
+
+from funutil import getLogger
+
+logger = getLogger("funvideo")
 
 
 class HttpException(Exception):
