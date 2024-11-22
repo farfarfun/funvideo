@@ -6,9 +6,8 @@ from typing import Any
 from uuid import uuid4
 
 import urllib3
-from funvideo.app.models import const
-
 from funutil import getLogger
+from funvideo.app.models import const
 
 logger = getLogger("funvideo")
 urllib3.disable_warnings()
@@ -65,7 +64,7 @@ def get_uuid(remove_hyphen: bool = False):
 
 
 def root_dir():
-    return os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+    return "./"
 
 
 def storage_dir(sub_dir: str = "", create: bool = False):
@@ -95,7 +94,7 @@ def task_dir(sub_dir: str = ""):
 
 
 def font_dir(sub_dir: str = ""):
-    d = resource_dir(f"fonts")
+    d = resource_dir("fonts")
     if sub_dir:
         d = os.path.join(d, sub_dir)
     if not os.path.exists(d):
@@ -104,7 +103,7 @@ def font_dir(sub_dir: str = ""):
 
 
 def song_dir(sub_dir: str = ""):
-    d = resource_dir(f"songs")
+    d = resource_dir("songs")
     if sub_dir:
         d = os.path.join(d, sub_dir)
     if not os.path.exists(d):
@@ -113,7 +112,7 @@ def song_dir(sub_dir: str = ""):
 
 
 def public_dir(sub_dir: str = ""):
-    d = resource_dir(f"public")
+    d = resource_dir("public")
     if sub_dir:
         d = os.path.join(d, sub_dir)
     if not os.path.exists(d):
