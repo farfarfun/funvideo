@@ -3,7 +3,9 @@ import os
 import random
 from typing import List
 
-from PIL import ImageFont
+import moviepy.audio.fx as afx
+import moviepy.video.fx as vfx
+from funutil import getLogger
 from funvideo.app.models import const
 from funvideo.app.models.schema import (
     MaterialInfo,
@@ -12,22 +14,18 @@ from funvideo.app.models.schema import (
     VideoParams,
 )
 from funvideo.app.utils import utils
-
 from moviepy import (
     AudioFileClip,
     ColorClip,
+    CompositeAudioClip,
     CompositeVideoClip,
+    ImageClip,
     TextClip,
     VideoFileClip,
     concatenate_videoclips,
-    CompositeAudioClip,
-    ImageClip,
 )
-import moviepy.video.fx as vfx
-
 from moviepy.video.tools.subtitles import SubtitlesClip
-
-from funutil import getLogger
+from PIL import ImageFont
 
 logger = getLogger("funvideo")
 
@@ -293,7 +291,9 @@ def generate_video(
         return _clip
 
     video_clip = VideoFileClip(video_path)
-    audio_clip = AudioFileClip(audio_path).volumex(params.voice_volume)
+    audio_clip = AudioFileClip(audio_path).with_effects(
+        [afx.MultiplyVolume(params.voice_volume)]
+    )
 
     if subtitle_path and os.path.exists(subtitle_path):
         sub = SubtitlesClip(subtitles=subtitle_path, encoding="utf-8")
@@ -306,8 +306,8 @@ def generate_video(
     bgm_file = get_bgm_file(bgm_type=params.bgm_type, bgm_file=params.bgm_file)
     if bgm_file:
         try:
-            bgm_clip = (
-                AudioFileClip(bgm_file).volumex(params.bgm_volume).audio_fadeout(3)
+            bgm_clip = AudioFileClip(bgm_file).with_effects(
+                [afx.MultiplyVolume(params.voice_volume)]
             )
             bgm_clip = afx.audio_loop(bgm_clip, duration=video_clip.duration)
             audio_clip = CompositeAudioClip([audio_clip, bgm_clip])
