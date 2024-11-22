@@ -3,6 +3,7 @@ import os.path
 import re
 from os import path
 
+from funutil import getLogger
 from funvideo.app.config import config
 from funvideo.app.models import const
 from funvideo.app.models.schema import VideoConcatMode, VideoParams
@@ -10,13 +11,12 @@ from funvideo.app.services import llm, material, subtitle, video, voice
 from funvideo.app.services import state as sm
 from funvideo.app.utils import utils
 
-from funutil import getLogger
-
 logger = getLogger("funvideo")
 
 
 def generate_script(task_id, params):
-    logger.info("\n\n## generating video script")
+    logger.info("###################################################################")
+    logger.info("generating video script")
     video_script = params.video_script.strip()
     if not video_script:
         video_script = llm.generate_script(
@@ -36,7 +36,8 @@ def generate_script(task_id, params):
 
 
 def generate_terms(task_id, params, video_script):
-    logger.info("\n\n## generating video terms")
+    logger.info("###################################################################")
+    logger.info("generating video terms")
     video_terms = params.video_terms
     if not video_terms:
         video_terms = llm.generate_terms(
@@ -73,7 +74,8 @@ def save_script_data(task_id, video_script, video_terms, params):
 
 
 def generate_audio(task_id, params, video_script):
-    logger.info("\n\n## generating audio")
+    logger.info("###################################################################")
+    logger.info("generating audio")
     audio_file = path.join(utils.task_dir(task_id), "audio.mp3")
     sub_maker = voice.tts(
         text=video_script,
@@ -101,7 +103,8 @@ def generate_subtitle(task_id, params, video_script, sub_maker, audio_file):
 
     subtitle_path = path.join(utils.task_dir(task_id), "subtitle.srt")
     subtitle_provider = config.app.get("subtitle_provider", "").strip().lower()
-    logger.info(f"\n\n## generating subtitle, provider: {subtitle_provider}")
+    logger.info("###################################################################")
+    logger.info(f"generating subtitle, provider: {subtitle_provider}")
 
     subtitle_fallback = False
     if subtitle_provider == "edge":
@@ -114,7 +117,10 @@ def generate_subtitle(task_id, params, video_script, sub_maker, audio_file):
 
     if subtitle_provider == "whisper" or subtitle_fallback:
         subtitle.create(audio_file=audio_file, subtitle_file=subtitle_path)
-        logger.info("\n\n## correcting subtitle")
+        logger.info(
+            "###################################################################"
+        )
+        logger.info("correcting subtitle")
         subtitle.correct(subtitle_file=subtitle_path, video_script=video_script)
 
     subtitle_lines = subtitle.file_to_subtitles(subtitle_path)
@@ -127,7 +133,10 @@ def generate_subtitle(task_id, params, video_script, sub_maker, audio_file):
 
 def get_video_materials(task_id, params, video_terms, audio_duration):
     if params.video_source == "local":
-        logger.info("\n\n## preprocess local materials")
+        logger.info(
+            "###################################################################"
+        )
+        logger.info("preprocess local materials")
         materials = video.preprocess_video(
             materials=params.video_materials, clip_duration=params.video_clip_duration
         )
@@ -139,7 +148,10 @@ def get_video_materials(task_id, params, video_terms, audio_duration):
             return None
         return [material_info.url for material_info in materials]
     else:
-        logger.info(f"\n\n## downloading videos from {params.video_source}")
+        logger.info(
+            "###################################################################"
+        )
+        logger.info(f"downloading videos from {params.video_source}")
         downloaded_videos = material.download_videos(
             task_id=task_id,
             search_terms=video_terms,
@@ -173,7 +185,10 @@ def generate_final_videos(
         combined_video_path = path.join(
             utils.task_dir(task_id), f"combined-{index}.mp4"
         )
-        logger.info(f"\n\n## combining video: {index} => {combined_video_path}")
+        logger.info(
+            "###################################################################"
+        )
+        logger.info(f"combining video: {index} => {combined_video_path}")
         video.combine_videos(
             combined_video_path=combined_video_path,
             video_paths=downloaded_videos,
@@ -189,7 +204,10 @@ def generate_final_videos(
 
         final_video_path = path.join(utils.task_dir(task_id), f"final-{index}.mp4")
 
-        logger.info(f"\n\n## generating video: {index} => {final_video_path}")
+        logger.info(
+            "###################################################################"
+        )
+        logger.info(f"generating video: {index} => {final_video_path}")
         video.generate_video(
             video_path=combined_video_path,
             audio_path=audio_file,
