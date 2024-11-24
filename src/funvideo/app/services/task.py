@@ -3,11 +3,12 @@ import os.path
 import re
 from os import path
 
+from funmatrial.video.download import download_videos
 from funutil import getLogger
 from funvideo.app.config import config
 from funvideo.app.models import const
 from funvideo.app.models.schema import VideoConcatMode, VideoParams
-from funvideo.app.services import llm, material, subtitle, video, voice
+from funvideo.app.services import llm, subtitle, video, voice
 from funvideo.app.services import state as sm
 from funvideo.app.utils import utils
 
@@ -152,8 +153,8 @@ def get_video_materials(task_id, params, video_terms, audio_duration):
             "###################################################################"
         )
         logger.info(f"downloading videos from {params.video_source}")
-        downloaded_videos = material.download_videos(
-            task_id=task_id,
+        downloaded_videos = download_videos(
+            api_key=config.app.get("pixabay_api_keys")[0],
             search_terms=video_terms,
             source=params.video_source,
             video_aspect=params.video_aspect,

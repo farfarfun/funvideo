@@ -1,7 +1,7 @@
 [project]
 name = "funvideo"
-version = "1.0.10"
+version = "1.0.11"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.9"
-dependencies = [ "edge-tts>=6.1.18", "moviepy>=2.0.0", "openai>=1.54.5",]
+dependencies = [ "edge-tts>=6.1.18", "funmaterial>=1.0.3", "moviepy>=2.0.0", "openai>=1.54.5",]

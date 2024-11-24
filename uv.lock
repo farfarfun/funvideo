@@ -304,11 +304,21 @@ wheels = [
 ]
 
 [[package]]
+name = "funmaterial"
+version = "1.0.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/4f/80/fb3506f015108805ce470a6cd0654c4ef0bd42b0c37050adcbc96f183168/funmaterial-1.0.3.tar.gz", hash = "sha256:80186a75acdce15edac804f01a92ff9f54a387c7db307302f5fe6d415b1f751d", size = 8261 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/99/95/8ee62fad611a3d6b83996e96618d8fd9112bb8b2cdffc66e9daa49bad64f/funmaterial-1.0.3-py3-none-any.whl", hash = "sha256:57eb0775738ab74356abefeb5ac25cb4766c61f5915f51eccf728b279ba53ef8", size = 9215 },
+]
+
+[[package]]
 name = "funvideo"
-version = "1.0.10"
+version = "1.0.11"
 source = { virtual = "." }
 dependencies = [
     { name = "edge-tts" },
+    { name = "funmaterial" },
     { name = "moviepy" },
     { name = "openai" },
 ]
@@ -316,6 +326,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "edge-tts", specifier = ">=6.1.18" },
+    { name = "funmaterial", specifier = ">=1.0.3" },
     { name = "moviepy", specifier = ">=2.0.0" },
     { name = "openai", specifier = ">=1.54.5" },
 ]
