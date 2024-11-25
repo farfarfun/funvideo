@@ -11,7 +11,8 @@ from funvideo.app.models.schema import VideoConcatMode, VideoParams
 from funvideo.app.services import llm, subtitle, video, voice
 from funvideo.app.services import state as sm
 from funvideo.app.utils import utils
-from funutil.chache image disk_cache
+from funutil.chache import disk_cache
+
 logger = getLogger("funvideo")
 
 
@@ -132,7 +133,7 @@ def generate_subtitle(task_id, params, video_script, sub_maker, audio_file):
     return subtitle_path
 
 
-@disk_cache(cache_key='task_id')
+@disk_cache(cache_key="task_id")
 def get_video_materials(task_id, params, video_terms, audio_duration):
     if params.video_source == "local":
         logger.info(
