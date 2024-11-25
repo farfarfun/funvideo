@@ -78,7 +78,7 @@ def combine_videos(
 
         while start_time < clip_duration:
             end_time = min(start_time + max_clip_duration, clip_duration)
-            split_clip = clip.with_subclip(start_time, end_time)
+            split_clip = clip.subclipped(start_time, end_time)
             raw_clips.append(split_clip)
             # logger.info(f"splitting from {start_time:.2f} to {end_time:.2f}, clip duration {clip_duration:.2f}, split_clip duration {split_clip.duration:.2f}")
             start_time = end_time
@@ -94,10 +94,10 @@ def combine_videos(
         for clip in raw_clips:
             # Check if clip is longer than the remaining audio
             if (audio_duration - video_duration) < clip.duration:
-                clip = clip.with_subclip(0, (audio_duration - video_duration))
+                clip = clip.subclipped(0, (audio_duration - video_duration))
             # Only shorten clips if the calculated clip length (req_dur) is shorter than the actual clip to prevent still image
             elif req_dur < clip.duration:
-                clip = clip.with_subclip(0, req_dur)
+                clip = clip.subclipped(0, req_dur)
             clip = clip.with_fps(30)
 
             # Not all videos are same size, so we need to resize them
@@ -143,7 +143,7 @@ def combine_videos(
                 )
 
             if clip.duration > max_clip_duration:
-                clip = clip.with_subclip(0, max_clip_duration)
+                clip = clip.subclipped(0, max_clip_duration)
 
             clips.append(clip)
             video_duration += clip.duration
