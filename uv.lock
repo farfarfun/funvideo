@@ -314,7 +314,7 @@ wheels = [
 
 [[package]]
 name = "funvideo"
-version = "1.0.13"
+version = "1.0.14"
 source = { virtual = "." }
 dependencies = [
     { name = "edge-tts" },

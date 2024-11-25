@@ -1,8 +1,9 @@
 import glob
+import math
 import os
 import random
 from typing import List
-
+from tqdm import tqdm
 import moviepy.audio.fx as afx
 import moviepy.video.fx as vfx
 from funutil import getLogger
@@ -56,13 +57,11 @@ def combine_videos(
     threads: int = 2,
 ) -> str:
     audio_clip = AudioFileClip(audio_file)
-    audio_duration = audio_clip.duration
+
+    audio_duration = math.floor(audio_clip.duration)
     logger.info(f"max duration of audio: {audio_duration} seconds")
-    # Required duration of each clip
-    req_dur = audio_duration / len(video_paths)
-    req_dur = max_clip_duration
+    req_dur = min(math.floor(audio_duration / len(video_paths)), max_clip_duration)
     logger.info(f"each clip will be maximum {req_dur} seconds long")
-    output_dir = os.path.dirname(combined_video_path)
 
     aspect = VideoAspect(video_aspect)
     video_width, video_height = aspect.to_resolution()
@@ -71,59 +70,55 @@ def combine_videos(
     video_duration = 0
 
     raw_clips = []
-    for video_path in video_paths:
+    # 将多个视频拆成一个个小片段
+    for video_path in tqdm(video_paths, desc="clip"):
         clip = VideoFileClip(video_path).without_audio()
         clip_duration = clip.duration
-        start_time = 0
-
-        while start_time < clip_duration:
-            end_time = min(start_time + max_clip_duration, clip_duration)
-            split_clip = clip.subclipped(start_time, end_time)
-            raw_clips.append(split_clip)
-            # logger.info(f"splitting from {start_time:.2f} to {end_time:.2f}, clip duration {clip_duration:.2f}, split_clip duration {split_clip.duration:.2f}")
-            start_time = end_time
+        for start_time in range(0, math.floor(clip_duration), req_dur):
+            raw_clips.append(
+                clip.subclipped(start_time, min(start_time + req_dur, clip_duration))
+            )
             if video_concat_mode.value == VideoConcatMode.sequential.value:
                 break
 
-    # random video_paths order
+    # 打乱重排
     if video_concat_mode.value == VideoConcatMode.random.value:
         random.shuffle(raw_clips)
 
-    # Add downloaded clips over and over until the duration of the audio (max_duration) has been reached
+    video_ratio = video_width / video_height
+
+    # 一遍又一遍地添加下载的剪辑，直到音频的持续时间（最大持续时间）已经达到
+
     while video_duration < audio_duration:
         for clip in raw_clips:
-            # Check if clip is longer than the remaining audio
+            # 检查剪辑是否比剩余音频长
             if (audio_duration - video_duration) < clip.duration:
-                clip = clip.subclipped(0, (audio_duration - video_duration))
-            # Only shorten clips if the calculated clip length (req_dur) is shorter than the actual clip to prevent still image
+                clip = clip.subclipped(0, audio_duration - video_duration)
+            # 只有当计算出的剪辑长度（要求长度）比实际剪辑短时才缩短剪辑，以防止静止图像
             elif req_dur < clip.duration:
                 clip = clip.subclipped(0, req_dur)
             clip = clip.with_fps(30)
 
-            # Not all videos are same size, so we need to resize them
+            # 并非所有视频都是相同的大小，所以我们需要调整它们的大小
             clip_w, clip_h = clip.size
             if clip_w != video_width or clip_h != video_height:
                 clip_ratio = clip.w / clip.h
-                video_ratio = video_width / video_height
-
                 if clip_ratio == video_ratio:
                     # 等比例缩放
-                    # clip = clip.resize((video_width, video_height))
                     clip = clip.with_effects(
                         [vfx.Resize(new_size=(video_width, video_height))]
                     )
                 else:
                     # 等比缩放视频
                     if clip_ratio > video_ratio:
-                        # 按照目标宽度等比缩放
-                        scale_factor = video_width / clip_w
+                        scale_factor = video_width / clip_w  # 按照目标宽度等比缩放
                     else:
-                        # 按照目标高度等比缩放
-                        scale_factor = video_height / clip_h
+                        scale_factor = video_height / clip_h  # 按照目标高度等比缩放
 
-                    new_width = int(clip_w * scale_factor)
-                    new_height = int(clip_h * scale_factor)
-                    # clip_resized = clip.resize(newsize=(new_width, new_height))
+                    new_width, new_height = (
+                        int(clip_w * scale_factor),
+                        int(clip_h * scale_factor),
+                    )
                     clip_resized = clip.with_effects(
                         [vfx.Resize(new_size=(new_width, new_height))]
                     )
@@ -138,15 +133,13 @@ def combine_videos(
                         ]
                     )
 
-                logger.info(
-                    f"resizing video to {video_width} x {video_height}, clip size: {clip_w} x {clip_h}"
-                )
-
-            if clip.duration > max_clip_duration:
-                clip = clip.subclipped(0, max_clip_duration)
-
             clips.append(clip)
+            logger.info(
+                f"resizing video to {video_width} x {video_height}, clip size: {clip.w} x {clip.h},duration: {clip.duration}"
+            )
             video_duration += clip.duration
+            if video_duration >= audio_duration:
+                break
 
     video_clip = concatenate_videoclips(clips)
     video_clip = video_clip.with_fps(30)
@@ -155,13 +148,13 @@ def combine_videos(
     video_clip.write_videofile(
         filename=combined_video_path,
         threads=threads,
-        logger=None,
-        temp_audiofile_path=output_dir,
+        logger="bar",
+        temp_audiofile_path=os.path.dirname(combined_video_path),
         audio_codec="aac",
         fps=30,
     )
     video_clip.close()
-    logger.success("completed")
+    logger.success(f"completed writing video to {combined_video_path}")
     return combined_video_path
 
 
@@ -295,8 +288,13 @@ def generate_video(
         [afx.MultiplyVolume(params.voice_volume)]
     )
 
-    if subtitle_path and os.path.exists(subtitle_path):
-        sub = SubtitlesClip(subtitles=subtitle_path, encoding="utf-8")
+    if subtitle_path and os.path.exists(subtitle_path) and False:
+        sub = SubtitlesClip(
+            subtitles=subtitle_path,
+            font="/Users/bingtao/workspace/explore/MoneyPrinterTurbo/resource/fonts/STHeitiMedium.ttc",
+            # font=font_path,
+            encoding="utf-8",
+        )
         text_clips = []
         for item in sub.subtitles:
             clip = create_text_clip(subtitle_item=item)
@@ -309,7 +307,7 @@ def generate_video(
             bgm_clip = AudioFileClip(bgm_file).with_effects(
                 [afx.MultiplyVolume(params.voice_volume)]
             )
-            bgm_clip = afx.audio_loop(bgm_clip, duration=video_clip.duration)
+            bgm_clip = bgm_clip.with_effects([vfx.Loop(duration=video_clip.duration)])
             audio_clip = CompositeAudioClip([audio_clip, bgm_clip])
         except Exception as e:
             logger.error(f"failed to add bgm: {str(e)}")
@@ -374,63 +372,3 @@ def preprocess_video(materials: List[MaterialInfo], clip_duration=4):
             material.url = video_file
             logger.success(f"completed: {video_file}")
     return materials
-
-
-if __name__ == "__main__":
-    m = MaterialInfo()
-    m.url = "/Users/harry/Downloads/IMG_2915.JPG"
-    m.provider = "local"
-    materials = preprocess_video([m], clip_duration=4)
-    print(materials)
-
-    # txt_en = "Here's your guide to travel hacks for budget-friendly adventures"
-    # txt_zh = "测试长字段这是您的旅行技巧指南帮助您进行预算友好的冒险"
-    # font = utils.resource_dir() + "/fonts/STHeitiMedium.ttc"
-    # for txt in [txt_en, txt_zh]:
-    #     t, h = wrap_text(text=txt, max_width=1000, font=font, fontsize=60)
-    #     print(t)
-    #
-    # task_id = "aa563149-a7ea-49c2-b39f-8c32cc225baf"
-    # task_dir = utils.task_dir(task_id)
-    # video_file = f"{task_dir}/combined-1.mp4"
-    # audio_file = f"{task_dir}/audio.mp3"
-    # subtitle_file = f"{task_dir}/subtitle.srt"
-    # output_file = f"{task_dir}/final.mp4"
-    #
-    # # video_paths = []
-    # # for file in os.listdir(utils.storage_dir("test")):
-    # #     if file.endswith(".mp4"):
-    # #         video_paths.append(os.path.join(utils.storage_dir("test"), file))
-    # #
-    # # combine_videos(combined_video_path=video_file,
-    # #                audio_file=audio_file,
-    # #                video_paths=video_paths,
-    # #                video_aspect=VideoAspect.portrait,
-    # #                video_concat_mode=VideoConcatMode.random,
-    # #                max_clip_duration=5,
-    # #                threads=2)
-    #
-    # cfg = VideoParams()
-    # cfg.video_aspect = VideoAspect.portrait
-    # cfg.font_name = "STHeitiMedium.ttc"
-    # cfg.font_size = 60
-    # cfg.stroke_color = "#000000"
-    # cfg.stroke_width = 1.5
-    # cfg.text_fore_color = "#FFFFFF"
-    # cfg.text_background_color = "transparent"
-    # cfg.bgm_type = "random"
-    # cfg.bgm_file = ""
-    # cfg.bgm_volume = 1.0
-    # cfg.subtitle_enabled = True
-    # cfg.subtitle_position = "bottom"
-    # cfg.n_threads = 2
-    # cfg.paragraph_number = 1
-    #
-    # cfg.voice_volume = 1.0
-    #
-    # generate_video(video_path=video_file,
-    #                audio_path=audio_file,
-    #                subtitle_path=subtitle_file,
-    #                output_file=output_file,
-    #                params=cfg
-    #                )

@@ -11,7 +11,7 @@ from funvideo.app.models.schema import VideoConcatMode, VideoParams
 from funvideo.app.services import llm, subtitle, video, voice
 from funvideo.app.services import state as sm
 from funvideo.app.utils import utils
-
+from funutil.chache image disk_cache
 logger = getLogger("funvideo")
 
 
@@ -88,8 +88,8 @@ def generate_audio(task_id, params, video_script):
         sm.state.update_task(task_id, state=const.TASK_STATE_FAILED)
         logger.error(
             """failed to generate audio:
-1. check if the language of the voice matches the language of the video script.
-2. check if the network is available. If you are in China, it is recommended to use a VPN and enable the global traffic mode.
+    1. check if the language of the voice matches the language of the video script.
+    2. check if the network is available. If you are in China, it is recommended to use a VPN and enable the global traffic mode.
         """.strip()
         )
         return None, None, None
@@ -132,6 +132,7 @@ def generate_subtitle(task_id, params, video_script, sub_maker, audio_file):
     return subtitle_path
 
 
+@disk_cache(cache_key='task_id')
 def get_video_materials(task_id, params, video_terms, audio_duration):
     if params.video_source == "local":
         logger.info(
