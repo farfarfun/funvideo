@@ -3,9 +3,10 @@ import math
 import os
 import random
 from typing import List
-from tqdm import tqdm
+
 import moviepy.audio.fx as afx
 import moviepy.video.fx as vfx
+from PIL import ImageFont
 from funutil import getLogger
 from funvideo.app.models import const
 from funvideo.app.models.schema import (
@@ -26,7 +27,7 @@ from moviepy import (
     concatenate_videoclips,
 )
 from moviepy.video.tools.subtitles import SubtitlesClip
-from PIL import ImageFont
+from tqdm import tqdm
 
 logger = getLogger("funvideo")
 
@@ -57,11 +58,11 @@ def combine_videos(
     threads: int = 2,
 ) -> str:
     audio_clip = AudioFileClip(audio_file)
-
     audio_duration = math.floor(audio_clip.duration)
-    logger.info(f"max duration of audio: {audio_duration} seconds")
     req_dur = min(math.floor(audio_duration / len(video_paths)), max_clip_duration)
-    logger.info(f"each clip will be maximum {req_dur} seconds long")
+
+    logger.info(f"音频总时长 {audio_duration} 秒")
+    logger.info(f"每个分片最多 {req_dur} 秒")
 
     aspect = VideoAspect(video_aspect)
     video_width, video_height = aspect.to_resolution()
@@ -71,16 +72,19 @@ def combine_videos(
 
     raw_clips = []
     # 将多个视频拆成一个个小片段
-    for video_path in tqdm(video_paths, desc="clip"):
-        clip = VideoFileClip(video_path).without_audio()
-        clip_duration = clip.duration
-        for start_time in range(0, math.floor(clip_duration), req_dur):
-            raw_clips.append(
-                clip.subclipped(start_time, min(start_time + req_dur, clip_duration))
-            )
-            if video_concat_mode.value == VideoConcatMode.sequential.value:
-                break
-
+    with tqdm(video_paths, total=len(video_paths), desc="clip") as pbar:
+        for video_path in pbar:
+            clip = VideoFileClip(video_path).without_audio()
+            clip_duration = clip.duration
+            for start_time in range(0, math.floor(clip_duration), req_dur):
+                raw_clips.append(
+                    clip.subclipped(
+                        start_time, min(start_time + req_dur, clip_duration)
+                    )
+                )
+                if video_concat_mode.value == VideoConcatMode.sequential.value:
+                    break
+                pbar.set_description(f"generate {len(raw_clips)} clips")
     # 打乱重排
     if video_concat_mode.value == VideoConcatMode.random.value:
         random.shuffle(raw_clips)
@@ -144,7 +148,7 @@ def combine_videos(
     video_clip = concatenate_videoclips(clips)
     video_clip = video_clip.with_fps(30)
     logger.info("writing")
-    # https://github.com/harry0703/MoneyPrinterTurbo/issues/111#issuecomment-2032354030
+
     video_clip.write_videofile(
         filename=combined_video_path,
         threads=threads,
@@ -158,7 +162,7 @@ def combine_videos(
     return combined_video_path
 
 
-def wrap_text(text, max_width, font="Arial", fontsize=60):
+def wrap_text(text, max_width, font, fontsize=60):
     # 创建字体对象
     font = ImageFont.truetype(font, fontsize)
 
@@ -171,7 +175,7 @@ def wrap_text(text, max_width, font="Arial", fontsize=60):
     if width <= max_width:
         return text, height
 
-    # logger.warning(f"wrapping text, max_width: {max_width}, text_width: {width}, text: {text}")
+    logger.debug(f"换行文本, 最大宽度: {max_width}, 文本宽度: {width}, 文本: {text}")
 
     processed = True
 
@@ -212,7 +216,7 @@ def wrap_text(text, max_width, font="Arial", fontsize=60):
     _wrapped_lines_.append(_txt_)
     result = "\n".join(_wrapped_lines_).strip()
     height = len(_wrapped_lines_) * height
-    # logger.warning(f"wrapped text: {result}")
+    logger.debug(f"换行文本: {result}")
     return result, height
 
 
@@ -226,16 +230,72 @@ def generate_video(
     aspect = VideoAspect(params.video_aspect)
     video_width, video_height = aspect.to_resolution()
 
-    logger.info(f"start, video size: {video_width} x {video_height}")
-    logger.info(f"  ① video: {video_path}")
-    logger.info(f"  ② audio: {audio_path}")
-    logger.info(f"  ③ subtitle: {subtitle_path}")
-    logger.info(f"  ④ output: {output_file}")
+    logger.info(f"开始，视频尺寸: {video_width} x {video_height}")
+    logger.info(f"  ① 视频: {video_path}")
+    logger.info(f"  ② 音频: {audio_path}")
+    logger.info(f"  ③ 字幕: {subtitle_path}")
+    logger.info(f"  ④ 输出: {output_file}")
 
-    # https://github.com/harry0703/MoneyPrinterTurbo/issues/217
-    # PermissionError: [WinError 32] The process cannot access the file because it is being used by another process: 'final-1.mp4.tempTEMP_MPY_wvf_snd.mp3'
-    # write into the same directory as the output file
     output_dir = os.path.dirname(output_file)
+
+    video_clip = VideoFileClip(video_path)
+
+    video_clip = process_subtitles(
+        subtitle_path,
+        video_clip,
+        video_clip.duration,
+        params,
+        video_width,
+        video_height,
+    )
+    logger.success("字幕处理完成")
+
+    video_clip = process_audio_tracks(video_clip, audio_path, params)
+    logger.success("音频处理完成")
+
+    video_clip.write_videofile(
+        output_file,
+        audio_codec="aac",
+        temp_audiofile_path=output_dir,
+        threads=params.n_threads or 2,
+        logger=None,
+        fps=30,
+    )
+    video_clip.close()
+    del video_clip
+    logger.success("completed")
+
+
+def process_audio_tracks(video_clip, audio_path, params):
+    """处理所有音轨"""
+    audio_clip = AudioFileClip(audio_path).with_effects(
+        [afx.MultiplyVolume(params.voice_volume)]
+    )
+
+    # 处理背景音乐
+    bgm_file = get_bgm_file(bgm_type=params.bgm_type, bgm_file=params.bgm_file)
+    if bgm_file:
+        try:
+            bgm_clip = AudioFileClip(bgm_file).with_effects(
+                [
+                    afx.MultiplyVolume(params.voice_volume),
+                    vfx.Loop(duration=video_clip.duration),
+                ]
+            )
+            audio_clip = CompositeAudioClip([audio_clip, bgm_clip])
+        except Exception as e:
+            logger.error(f"failed to add bgm: {str(e)}")
+
+    return video_clip.with_audio(audio_clip)
+
+
+def process_subtitles(
+    subtitle_path, video_clip, video_duration, params, video_width, video_height
+):
+    """处理字幕"""
+
+    if not (subtitle_path and os.path.exists(subtitle_path)):
+        return video_clip
 
     font_path = ""
     if params.subtitle_enabled:
@@ -245,7 +305,7 @@ def generate_video(
         if os.name == "nt":
             font_path = font_path.replace("\\", "/")
 
-        logger.info(f"using font: {font_path}")
+        logger.info(f"使用字体: {font_path}")
 
     def create_text_clip(subtitle_item):
         phrase = subtitle_item[1]
@@ -283,47 +343,27 @@ def generate_video(
             _clip = _clip.with_position(("center", "center"))
         return _clip
 
-    video_clip = VideoFileClip(video_path)
-    audio_clip = AudioFileClip(audio_path).with_effects(
-        [afx.MultiplyVolume(params.voice_volume)]
+    sub = SubtitlesClip(
+        subtitles=subtitle_path,
+        font="/Users/bingtao/workspace/explore/MoneyPrinterTurbo/resource/fonts/STHeitiMedium.ttc",
+        encoding="utf-8",
     )
+    text_clips = []
 
-    if subtitle_path and os.path.exists(subtitle_path) and False:
-        sub = SubtitlesClip(
-            subtitles=subtitle_path,
-            font="/Users/bingtao/workspace/explore/MoneyPrinterTurbo/resource/fonts/STHeitiMedium.ttc",
-            # font=font_path,
-            encoding="utf-8",
-        )
-        text_clips = []
-        for item in sub.subtitles:
-            clip = create_text_clip(subtitle_item=item)
-            text_clips.append(clip)
-        video_clip = CompositeVideoClip([video_clip, *text_clips])
+    for item in sub.subtitles:
+        clip = create_text_clip(subtitle_item=item)
 
-    bgm_file = get_bgm_file(bgm_type=params.bgm_type, bgm_file=params.bgm_file)
-    if bgm_file:
-        try:
-            bgm_clip = AudioFileClip(bgm_file).with_effects(
-                [afx.MultiplyVolume(params.voice_volume)]
-            )
-            bgm_clip = bgm_clip.with_effects([vfx.Loop(duration=video_clip.duration)])
-            audio_clip = CompositeAudioClip([audio_clip, bgm_clip])
-        except Exception as e:
-            logger.error(f"failed to add bgm: {str(e)}")
+        # 时间范围调整
+        start_time = max(clip.start, 0)
+        if start_time >= video_duration:
+            continue
 
-    video_clip = video_clip.with_audio(audio_clip)
-    video_clip.write_videofile(
-        output_file,
-        audio_codec="aac",
-        temp_audiofile_path=output_dir,
-        threads=params.n_threads or 2,
-        logger=None,
-        fps=30,
-    )
-    video_clip.close()
-    del video_clip
-    logger.success("completed")
+        end_time = min(clip.end, video_duration)
+        clip = clip.set_start(start_time).set_end(end_time)
+        text_clips.append(clip)
+
+    logger.info(f"处理了 {len(text_clips)} 段字幕")
+    return CompositeVideoClip([video_clip, *text_clips])
 
 
 def preprocess_video(materials: List[MaterialInfo], clip_duration=4):
