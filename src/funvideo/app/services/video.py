@@ -6,8 +6,8 @@ from typing import List
 import moviepy.audio.fx as afx
 import moviepy.video.fx as vfx
 from PIL import ImageFont
-from funmatrial.font import random_font_from_zenodo
-from funmatrial.song import random_song_from_zenodo
+from funmaterial.font import random_font_from_zenodo
+from funmaterial.song import random_song_from_zenodo
 from funutil import getLogger
 from funvideo.app.models import const
 from funvideo.app.models.schema import (

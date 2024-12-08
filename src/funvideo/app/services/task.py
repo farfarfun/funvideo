@@ -3,7 +3,7 @@ import os.path
 import re
 from os import path
 
-from funmatrial.video.download import download_videos
+from funmaterial.video.download import download_videos
 from funutil import getLogger
 from funvideo.app.config import config
 from funvideo.app.models import const
