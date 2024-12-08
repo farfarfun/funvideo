@@ -1,4 +1,3 @@
-import glob
 import math
 import os
 import random
@@ -7,6 +6,8 @@ from typing import List
 import moviepy.audio.fx as afx
 import moviepy.video.fx as vfx
 from PIL import ImageFont
+from funmatrial.font import random_font_from_zenodo
+from funmatrial.song import random_song_from_zenodo
 from funutil import getLogger
 from funvideo.app.models import const
 from funvideo.app.models.schema import (
@@ -40,10 +41,7 @@ def get_bgm_file(bgm_type: str = "random", bgm_file: str = ""):
         return bgm_file
 
     if bgm_type == "random":
-        suffix = "*.mp3"
-        song_dir = utils.song_dir()
-        files = glob.glob(os.path.join(song_dir, suffix))
-        return random.choice(files)
+        return random_song_from_zenodo()
 
     return ""
 
@@ -55,11 +53,20 @@ def combine_videos(
     video_aspect: VideoAspect = VideoAspect.portrait,
     video_concat_mode: VideoConcatMode = VideoConcatMode.random,
     max_clip_duration: int = 5,
+    min_clip_duration: int = 3,
     threads: int = 2,
+    overwrite=False,
 ) -> str:
+    if os.path.exists(combined_video_path) and not overwrite:
+        logger.info(f"file {combined_video_path} already exists, skipping")
+        return combined_video_path
+
     audio_clip = AudioFileClip(audio_file)
     audio_duration = math.floor(audio_clip.duration)
-    req_dur = min(math.floor(audio_duration / len(video_paths)), max_clip_duration)
+    req_dur = max(
+        min(math.floor(audio_duration / len(video_paths)), max_clip_duration),
+        min_clip_duration,
+    )
 
     logger.info(f"音频总时长 {audio_duration} 秒")
     logger.info(f"每个分片最多 {req_dur} 秒")
@@ -85,6 +92,8 @@ def combine_videos(
                 if video_concat_mode.value == VideoConcatMode.sequential.value:
                     break
                 pbar.set_description(f"generate {len(raw_clips)} clips")
+            if len(raw_clips) > 30:
+                break
     # 打乱重排
     if video_concat_mode.value == VideoConcatMode.random.value:
         random.shuffle(raw_clips)
@@ -298,14 +307,8 @@ def process_subtitles(
         return video_clip
 
     font_path = ""
-    if params.subtitle_enabled:
-        if not params.font_name:
-            params.font_name = "STHeitiMedium.ttc"
-        font_path = os.path.join(utils.font_dir(), params.font_name)
-        if os.name == "nt":
-            font_path = font_path.replace("\\", "/")
-
-        logger.info(f"使用字体: {font_path}")
+    font_path = random_font_from_zenodo()
+    logger.info(f"使用字体: {font_path}")
 
     def create_text_clip(subtitle_item):
         phrase = subtitle_item[1]
@@ -314,14 +317,13 @@ def process_subtitles(
             phrase, max_width=max_width, font=font_path, fontsize=params.font_size
         )
         _clip = TextClip(
-            wrapped_txt,
             font=font_path,
-            fontsize=params.font_size,
+            text=wrapped_txt,
+            font_size=params.font_size,
             color=params.text_fore_color,
             bg_color=params.text_background_color,
             stroke_color=params.stroke_color,
             stroke_width=params.stroke_width,
-            print_cmd=False,
         )
         duration = subtitle_item[0][1] - subtitle_item[0][0]
         _clip = _clip.with_start(subtitle_item[0][0])
@@ -343,9 +345,11 @@ def process_subtitles(
             _clip = _clip.with_position(("center", "center"))
         return _clip
 
+    font = random_font_from_zenodo()
+
     sub = SubtitlesClip(
-        subtitles=subtitle_path,
-        font="/Users/bingtao/workspace/explore/MoneyPrinterTurbo/resource/fonts/STHeitiMedium.ttc",
+        subtitle_path,
+        font=font,
         encoding="utf-8",
     )
     text_clips = []
@@ -359,7 +363,7 @@ def process_subtitles(
             continue
 
         end_time = min(clip.end, video_duration)
-        clip = clip.set_start(start_time).set_end(end_time)
+        clip = clip.with_start(start_time).with_end(end_time)
         text_clips.append(clip)
 
     logger.info(f"处理了 {len(text_clips)} 段字幕")
