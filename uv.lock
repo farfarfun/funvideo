@@ -522,20 +522,31 @@ wheels = [
 ]
 
 [[package]]
+name = "funai"
+version = "1.0.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/29/79/a510b4a800a3caa5e02a96142a3a089b35e7d8ff6dd639bf393a0b3247c5/funai-1.0.1.tar.gz", hash = "sha256:936d6bd87e2cf91e1d2c716f604603e131671a5231859ed7c2dc533a7b917e4d", size = 2562 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/91/e6/d4a7da2831ed52e43dfb37a91193b43b6945e19c919b0d214a46a2eba68a/funai-1.0.1-py3-none-any.whl", hash = "sha256:89991040013f45c0aa4503135950ba9286ce7fcd75364f9115a959a07e849f97", size = 3233 },
+]
+
+[[package]]
 name = "funvideo"
-version = "1.0.22"
+version = "1.0.23"
 source = { virtual = "." }
 dependencies = [
     { name = "edge-tts" },
     { name = "faster-whisper" },
+    { name = "funai" },
     { name = "moviepy" },
     { name = "openai" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "edge-tts", specifier = ">=6.1.18" },
+    { name = "edge-tts", specifier = "~=6.1.10" },
     { name = "faster-whisper", specifier = ">=1.1.0" },
+    { name = "funai", specifier = ">=1.0.1" },
     { name = "moviepy", specifier = ">=2.0.0" },
     { name = "openai", specifier = ">=1.54.5" },
 ]
