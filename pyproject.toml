@@ -1,7 +1,13 @@
 [project]
 name = "funvideo"
-version = "1.0.23"
-description = "Add your description here"
+version = "1.0.24"
+description = "funvideo"
 readme = "README.md"
 requires-python = ">=3.9"
-dependencies = [ "edge-tts~=6.1.10", "faster-whisper>=1.1.0", "funai>=1.0.1", "moviepy>=2.0.0", "openai>=1.54.5",]
+dependencies = [ "edge-tts~=6.1.10", "faster-whisper>=1.1.0", "funai>=1.0.1", "funtalk>=1.0.11", "moviepy>=2.0.0", "openai>=1.54.5",]
+[[project.authors]]
+name = "niuliangtao"
+email = "farfarfun@qq.com"
+
+[tool.setuptools]
+license-files = []

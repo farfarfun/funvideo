@@ -315,7 +315,7 @@ class TaskGenerate:
                 search_terms=video_terms,
                 source=params.video_source,
                 video_aspect=params.video_aspect,
-                material_directory=utils.storage_dir("cache_videos"),
+                material_directory=utils.storage_dir("video"),
                 video_contact_mode=params.video_concat_mode,
                 audio_duration=audio_duration * params.video_count,
                 max_clip_duration=params.video_clip_duration,
