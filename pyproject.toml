@@ -14,3 +14,10 @@ license-files = []
 
 [dependency-groups]
 dev = [ "pytest>=8.0.0", "httpx>=0.27.0",]
+
+# moviepy 2.2.1 声明 pillow<12.0，但截至本次修复所有 Pillow open CVE 都要求
+# 12.1.1/12.2.0/12.3.0 才修复。手动验证过 moviepy 的 resize/TextClip 渲染路径
+# 在 Pillow 12.3.0 下工作正常，故用 override 打破这个过于保守的上限。
+# 见 farfarfun/todo-list#275。
+[tool.uv]
+override-dependencies = ["pillow>=12.3.0"]
