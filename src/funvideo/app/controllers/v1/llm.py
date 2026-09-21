@@ -1,4 +1,7 @@
+from typing import Any
+
 from fastapi import Request
+
 from funvideo.app.controllers.v1.base import new_router
 from funvideo.app.models.schema import (
     VideoScriptRequest,
@@ -19,7 +22,16 @@ router = new_router()
     response_model=VideoScriptResponse,
     summary="Create a script for the video",
 )
-def generate_video_script(request: Request, body: VideoScriptRequest):
+def generate_video_script(request: Request, body: VideoScriptRequest) -> dict[str, Any]:
+    """根据视频主题生成脚本。
+
+    Args:
+        request: 当前 FastAPI 请求。
+        body: 视频主题、语言和段落数量。
+
+    Returns:
+        包含生成脚本的标准响应字典。
+    """
     video_script = llm.generate_script(
         video_subject=body.video_subject,
         language=body.video_language,
@@ -34,7 +46,16 @@ def generate_video_script(request: Request, body: VideoScriptRequest):
     response_model=VideoTermsResponse,
     summary="Generate video terms based on the video script",
 )
-def generate_video_terms(request: Request, body: VideoTermsRequest):
+def generate_video_terms(request: Request, body: VideoTermsRequest) -> dict[str, Any]:
+    """根据视频脚本生成素材检索词。
+
+    Args:
+        request: 当前 FastAPI 请求。
+        body: 视频主题、脚本和检索词数量。
+
+    Returns:
+        包含素材检索词的标准响应字典。
+    """
     video_terms = llm.generate_terms(
         video_subject=body.video_subject,
         video_script=body.video_script,

@@ -11,10 +11,12 @@ pip install funvideo
 ## 作为服务运行
 
 ```bash
-uvicorn funvideo.app.asgi:app --host 0.0.0.0 --port 8080
+funvideo server run --host 0.0.0.0 --port 8080
 ```
 
-启动后可在 `http://127.0.0.1:8080/docs` 查看接口文档。运行目录下需要一个 `config.toml`（`funvideo.app.config.core.Config` 负责加载，支持 LLM/Pexels/Pixabay/Azure 语音等参数）。主要接口（见 `src/funvideo/app/router.py`）：
+后台运行使用 `funvideo server start`，并通过 `stop`、`restart`、`status` 管理服务。源码仓库中的 `scripts/setup.sh` 是相同命令的薄封装，并额外提供安装、升级、回滚、卸载与发布动作。
+
+启动后可在 `http://127.0.0.1:8080/docs` 查看接口文档。`--config` 支持 TOML、JSON 和 `.env`；省略时使用 `~/.config/farfarfun/funvideo/config.toml`。LLM 和素材平台密钥通过环境变量或 `funsecret` 管理，不写入普通配置文件。主要接口（见 `src/funvideo/app/router.py`）：
 
 - `POST /api/v1/scripts`：调用 `services/llm.py` 生成视频文案
 - `POST /api/v1/terms`：根据文案生成视频检索关键词
@@ -29,7 +31,8 @@ uvicorn funvideo.app.asgi:app --host 0.0.0.0 --port 8080
 ## 作为 Web UI 运行
 
 ```bash
-streamlit run src/funvideo/webui/Main.py
+pip install "funvideo[webui]"
+funvideo webui
 ```
 
 提供一个可视化界面，可配置 LLM 供应商（OpenAI、DeepSeek、Moonshot、Qwen、Gemini、Ollama 等）、视频来源、字幕样式、语音音色等，点击生成后直接在页面预览视频。
@@ -37,3 +40,20 @@ streamlit run src/funvideo/webui/Main.py
 ## 核心依赖
 
 视频合成基于 `moviepy`，语音合成使用 `edge-tts`（默认）或 Azure 语音，字幕识别用到 `faster-whisper`；素材下载、字体/背景音乐随机选取分别复用了 [`funmaterial`](https://github.com/farfarfun/funmaterial) 和 [`funtalk`](https://github.com/farfarfun/funtalk) 两个库。
+
+## 第三方来源
+
+本项目基于 [MoneyPrinterTurbo](https://github.com/harry0703/MoneyPrinterTurbo) 二次开发。原项目由 Harry 于 2024 年以 MIT 协议发布；其版权与许可声明完整保留在 [NOTICE](NOTICE) 中。
+
+---
+
+## 关于 farfarfun
+
+[farfarfun](https://github.com/farfarfun) 是一个专注于实用工具库的开源组织，
+涵盖云存储、数据处理、AI、多媒体与开发工具链等方向。
+
+- 🏠 组织主页：<https://github.com/farfarfun>
+- 📦 PyPI：<https://pypi.org/user/niuliangtao/>
+- 📧 联系：farfarfun@qq.com
+
+本项目基于 [MIT](LICENSE) 协议开源。

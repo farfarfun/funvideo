@@ -8,6 +8,7 @@ Resources:
 """
 
 from fastapi import APIRouter
+
 from funvideo.app.controllers.v1 import llm, video
 
 root_api_router = APIRouter()

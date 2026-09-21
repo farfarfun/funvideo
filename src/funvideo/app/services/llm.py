@@ -1,20 +1,34 @@
 import json
-import logging
 import re
-from typing import List
+from functools import lru_cache
 
+from farlog import getLogger
 from funai.llm import get_model
-from funutil import getLogger
 
 logger = getLogger("funai")
 
 _max_retries = 5
-model = get_model("deepseek")
+
+
+@lru_cache(maxsize=1)
+def _get_model():
+    """按需创建并复用大模型客户端。"""
+    return get_model("deepseek")
 
 
 def generate_script(
     video_subject: str, language: str = "", paragraph_number: int = 1
 ) -> str:
+    """生成视频脚本。
+
+    Args:
+        video_subject: 视频主题。
+        language: 可选目标语言。
+        paragraph_number: 需要保留的段落数。
+
+    Returns:
+        清理格式后的脚本文本；多次失败时返回空字符串。
+    """
     prompt = f"""
 # Role: Video Script Generator
 
@@ -41,7 +55,7 @@ Generate a script for a video, depending on the subject of the video.
     final_script = ""
     logger.info(f"subject: {video_subject}")
 
-    def format_response(response):
+    def format_response(response: str) -> str:
         # Clean the script
         # Remove asterisks, hashes
         response = response.replace("*", "")
@@ -54,19 +68,16 @@ Generate a script for a video, depending on the subject of the video.
         # Split the script into paragraphs
         paragraphs = response.split("\n\n")
 
-        # Select the specified number of paragraphs
-        selected_paragraphs = paragraphs[:paragraph_number]
-
         # Join the selected paragraphs into a single string
-        return "\n\n".join(paragraphs)
+        return "\n\n".join(paragraphs[:paragraph_number])
 
     for i in range(_max_retries):
         try:
-            response = model.chat(prompt=prompt)
+            response = _get_model().chat(prompt=prompt)
             if response:
                 final_script = format_response(response)
             else:
-                logging.error("gpt returned an empty response")
+                logger.error("gpt returned an empty response")
 
             # g4f may return an error message
             if final_script and "当日额度已消耗完" in final_script:
@@ -84,7 +95,17 @@ Generate a script for a video, depending on the subject of the video.
     return final_script.strip()
 
 
-def generate_terms(video_subject: str, video_script: str, amount: int = 5) -> List[str]:
+def generate_terms(video_subject: str, video_script: str, amount: int = 5) -> list[str]:
+    """生成视频素材检索词。
+
+    Args:
+        video_subject: 视频主题。
+        video_script: 视频脚本。
+        amount: 期望返回的检索词数量。
+
+    Returns:
+        英文素材检索词列表；多次失败时返回空列表。
+    """
     prompt = f"""
 # Role: Video Search Terms Generator
 
@@ -117,7 +138,7 @@ Please note that you must use English for generating video search terms; Chinese
     response = ""
     for i in range(_max_retries):
         try:
-            response = model.chat(prompt)
+            response = _get_model().chat(prompt)
             search_terms = json.loads(response)
             if not isinstance(search_terms, list) or not all(
                 isinstance(term, str) for term in search_terms
@@ -132,9 +153,8 @@ Please note that you must use English for generating video search terms; Chinese
                 if match:
                     try:
                         search_terms = json.loads(match.group())
-                    except Exception as e:
+                    except (json.JSONDecodeError, TypeError) as e:
                         logger.warning(f"failed to generate video terms: {str(e)}")
-                        pass
 
         if search_terms and len(search_terms) > 0:
             break

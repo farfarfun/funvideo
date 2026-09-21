@@ -2,10 +2,11 @@ import math
 import re
 from os import path
 
+from farlog import getLogger
 from funmaterial.video.download import download_videos
 from funtalk.tts import tts_generate
-from funutil import getLogger
 from funutil.cache import disk_cache
+
 from funvideo.app.config import config
 from funvideo.app.models import const
 from funvideo.app.models.schema import VideoConcatMode, VideoParams
@@ -310,8 +311,15 @@ class TaskGenerate:
                 "###################################################################"
             )
             logger.info(f"downloading videos from {params.video_source}")
+            api_keys = config.get_secret(
+                "app", f"{params.video_source}_api_keys", default=""
+            )
+            if isinstance(api_keys, str):
+                api_keys = [key.strip() for key in api_keys.split(",") if key.strip()]
+            if not api_keys:
+                raise ValueError(f"missing {params.video_source} API key")
             downloaded_videos = download_videos(
-                api_key=config.app.get("pixabay_api_keys")[0],
+                api_key=api_keys[0],
                 search_terms=video_terms,
                 source=params.video_source,
                 video_aspect=params.video_aspect,
@@ -331,14 +339,3 @@ class TaskGenerate:
 
 def start(task_id, params: VideoParams, stop_at: str = "video"):
     return TaskGenerate(task_id).start(params, stop_at=stop_at)
-
-
-def example():
-    task_id = "task_id"
-    params = VideoParams(
-        video_subject="金钱的作用",
-        voice_name="zh-CN-XiaoyiNeural-Female",
-        voice_rate=1.0,
-        video_source="pixabay",
-    )
-    start(task_id, params, stop_at="video")

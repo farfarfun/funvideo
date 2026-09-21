@@ -1,10 +1,26 @@
 import os
 import platform
+import subprocess
 import sys
 from uuid import uuid4
 
 import streamlit as st
-from loguru import logger
+from farlog import getLogger
+from funtalk.tts import tts_generate
+
+from funvideo.app.config import config
+from funvideo.app.models.const import FILE_TYPE_IMAGES, FILE_TYPE_VIDEOS
+from funvideo.app.models.schema import (
+    MaterialInfo,
+    VideoAspect,
+    VideoConcatMode,
+    VideoParams,
+)
+from funvideo.app.services import llm
+from funvideo.app.services import task as tm
+from funvideo.app.utils import utils
+
+logger = getLogger("funvideo")
 
 st.set_page_config(
     page_title="MoneyPrinterTurbo",
@@ -19,18 +35,6 @@ st.set_page_config(
         "video.\n\nhttps://github.com/harry0703/MoneyPrinterTurbo",
     },
 )
-
-from funvideo.app.config import config
-from funvideo.app.models.const import FILE_TYPE_IMAGES, FILE_TYPE_VIDEOS
-from funvideo.app.models.schema import (
-    MaterialInfo,
-    VideoAspect,
-    VideoConcatMode,
-    VideoParams,
-)
-from funvideo.app.services import llm, voice
-from funvideo.app.services import task as tm
-from funvideo.app.utils import utils
 
 # Add the root directory of the project to the system path to allow importing modules from the project
 root_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
@@ -57,7 +61,6 @@ song_dir = os.path.join(root_dir, "resource", "songs")
 i18n_dir = os.path.join(root_dir, "webui", "i18n")
 config_file = os.path.join(root_dir, "webui", ".streamlit", "webui.toml")
 system_locale = utils.get_system_locale()
-# print(f"******** system locale: {system_locale} ********")
 
 if "video_subject" not in st.session_state:
     st.session_state["video_subject"] = ""
@@ -90,15 +93,15 @@ def get_all_songs():
 
 def open_task_folder(task_id):
     try:
-        sys = platform.system()
+        system = platform.system()
         path = os.path.join(root_dir, "storage", "tasks", task_id)
         if os.path.exists(path):
-            if sys == "Windows":
-                os.system(f"start {path}")
-            if sys == "Darwin":
-                os.system(f"open {path}")
-    except Exception as e:
-        logger.error(e)
+            if system == "Windows":
+                subprocess.run(["explorer", path], check=True)
+            elif system == "Darwin":
+                subprocess.run(["open", path], check=True)
+    except (OSError, subprocess.CalledProcessError) as exc:
+        logger.error(f"failed to open task folder: {exc}")
 
 
 def scroll_to_bottom():
@@ -230,9 +233,9 @@ if not config.app.get("hide_config", False):
             llm_provider = llm_provider.lower()
             config.app["llm_provider"] = llm_provider
 
-            llm_api_key = config.app.get(f"{llm_provider}_api_key", "")
-            llm_secret_key = config.app.get(
-                f"{llm_provider}_secret_key", ""
+            llm_api_key = config.get_secret("app", f"{llm_provider}_api_key", "")
+            llm_secret_key = config.get_secret(
+                "app", f"{llm_provider}_secret_key", ""
             )  # only for baidu ernie
             llm_base_url = config.app.get(f"{llm_provider}_base_url", "")
             llm_model_name = config.app.get(f"{llm_provider}_model_name", "")
@@ -380,7 +383,7 @@ if not config.app.get("hide_config", False):
                 st_llm_model_name = None
 
             if st_llm_api_key:
-                config.app[f"{llm_provider}_api_key"] = st_llm_api_key
+                config.set_secret("app", f"{llm_provider}_api_key", st_llm_api_key)
             if st_llm_base_url:
                 config.app[f"{llm_provider}_base_url"] = st_llm_base_url
             if st_llm_model_name:
@@ -389,7 +392,9 @@ if not config.app.get("hide_config", False):
                 st_llm_secret_key = st.text_input(
                     tr("Secret Key"), value=llm_secret_key, type="password"
                 )
-                config.app[f"{llm_provider}_secret_key"] = st_llm_secret_key
+                config.set_secret(
+                    "app", f"{llm_provider}_secret_key", st_llm_secret_key
+                )
 
             if llm_provider == "cloudflare":
                 st_llm_account_id = st.text_input(
@@ -401,16 +406,16 @@ if not config.app.get("hide_config", False):
         with right_config_panel:
 
             def get_keys_from_config(cfg_key):
-                api_keys = config.app.get(cfg_key, [])
+                api_keys = config.get_secret("app", cfg_key, "")
                 if isinstance(api_keys, str):
-                    api_keys = [api_keys]
+                    api_keys = api_keys.split(",")
                 api_key = ", ".join(api_keys)
                 return api_key
 
             def save_keys_to_config(cfg_key, value):
                 value = value.replace(" ", "")
                 if value:
-                    config.app[cfg_key] = value.split(",")
+                    config.set_secret("app", cfg_key, value)
 
             pexels_api_key = get_keys_from_config("pexels_api_keys")
             pexels_api_key = st.text_input(
@@ -553,35 +558,22 @@ with middle_panel:
         # tts_providers = ['edge', 'azure']
         # tts_provider = st.selectbox(tr("TTS Provider"), tts_providers)
 
-        voices = voice.get_all_azure_voices(filter_locals=support_locales)
-        friendly_names = {
-            v: v.replace("Female", tr("Female"))
-            .replace("Male", tr("Male"))
-            .replace("Neural", "")
-            for v in voices
+        default_voices = {
+            "zh": "zh-CN-XiaoxiaoNeural-Female",
+            "en": "en-US-JennyNeural-Female",
+            "de": "de-DE-KatjaNeural-Female",
+            "fr": "fr-FR-DeniseNeural-Female",
+            "vi": "vi-VN-HoaiMyNeural-Female",
+            "th": "th-TH-PremwadeeNeural-Female",
         }
-        saved_voice_name = config.ui.get("voice_name", "")
-        saved_voice_name_index = 0
-        if saved_voice_name in friendly_names:
-            saved_voice_name_index = list(friendly_names.keys()).index(saved_voice_name)
-        else:
-            for i, v in enumerate(voices):
-                if (
-                    v.lower().startswith(st.session_state["ui_language"].lower())
-                    and "V2" not in v
-                ):
-                    saved_voice_name_index = i
-                    break
-
-        selected_friendly_name = st.selectbox(
-            tr("Speech Synthesis"),
-            options=list(friendly_names.values()),
-            index=saved_voice_name_index,
+        language = st.session_state["ui_language"].split("-")[0].lower()
+        saved_voice_name = config.ui.get("voice_name") or default_voices.get(
+            language, default_voices["en"]
         )
-
-        voice_name = list(friendly_names.keys())[
-            list(friendly_names.values()).index(selected_friendly_name)
-        ]
+        voice_name = st.text_input(
+            tr("Speech Synthesis"),
+            value=saved_voice_name,
+        )
         params.voice_name = voice_name
         config.ui["voice_name"] = voice_name
 
@@ -593,39 +585,22 @@ with middle_panel:
                 play_content = tr("Voice Example")
             with st.spinner(tr("Synthesizing Voice")):
                 temp_dir = utils.storage_dir("temp", create=True)
-                audio_file = os.path.join(temp_dir, f"tmp-voice-{str(uuid4())}.mp3")
-                sub_maker = voice.tts(
-                    text=play_content,
-                    voice_name=voice_name,
-                    voice_rate=params.voice_rate,
-                    voice_file=audio_file,
-                )
-                # if the voice file generation failed, try again with a default content.
-                if not sub_maker:
-                    play_content = "This is a example voice. if you hear this, the voice synthesis failed with the original content."
-                    sub_maker = voice.tts(
+                audio_file = os.path.join(temp_dir, f"tmp-voice-{uuid4()!s}.mp3")
+                subtitle_file = os.path.join(temp_dir, f"tmp-voice-{uuid4()!s}.srt")
+                try:
+                    voice_client = tts_generate(
                         text=play_content,
                         voice_name=voice_name,
                         voice_rate=params.voice_rate,
                         voice_file=audio_file,
+                        subtitle_file=subtitle_file,
                     )
-
-                if sub_maker and os.path.exists(audio_file):
-                    st.audio(audio_file, format="audio/mp3")
-                    if os.path.exists(audio_file):
-                        os.remove(audio_file)
-
-        if voice.is_azure_v2_voice(voice_name):
-            saved_azure_speech_region = config.azure.get("speech_region", "")
-            saved_azure_speech_key = config.azure.get("speech_key", "")
-            azure_speech_region = st.text_input(
-                tr("Speech Region"), value=saved_azure_speech_region
-            )
-            azure_speech_key = st.text_input(
-                tr("Speech Key"), value=saved_azure_speech_key, type="password"
-            )
-            config.azure["speech_region"] = azure_speech_region
-            config.azure["speech_key"] = azure_speech_key
+                    if voice_client and os.path.exists(audio_file):
+                        st.audio(audio_file, format="audio/mp3")
+                finally:
+                    for generated_file in (audio_file, subtitle_file):
+                        if os.path.exists(generated_file):
+                            os.remove(generated_file)
 
         params.voice_volume = st.selectbox(
             tr("Speech Volume"),
@@ -735,7 +710,7 @@ if start_button:
     if (
         llm_provider != "g4f"
         and llm_provider != "ollama"
-        and not config.app.get(f"{llm_provider}_api_key", "")
+        and not config.get_secret("app", f"{llm_provider}_api_key", "")
     ):
         st.error(tr("Please Enter the LLM API Key"))
         scroll_to_bottom()
@@ -746,12 +721,16 @@ if start_button:
         scroll_to_bottom()
         st.stop()
 
-    if params.video_source == "pexels" and not config.app.get("pexels_api_keys", ""):
+    if params.video_source == "pexels" and not config.get_secret(
+        "app", "pexels_api_keys", ""
+    ):
         st.error(tr("Please Enter the Pexels API Key"))
         scroll_to_bottom()
         st.stop()
 
-    if params.video_source == "pixabay" and not config.app.get("pixabay_api_keys", ""):
+    if params.video_source == "pixabay" and not config.get_secret(
+        "app", "pixabay_api_keys", ""
+    ):
         st.error(tr("Please Enter the Pixabay API Key"))
         scroll_to_bottom()
         st.stop()
@@ -800,8 +779,9 @@ if start_button:
             player_cols = st.columns(len(video_files) * 2 + 1)
             for i, url in enumerate(video_files):
                 player_cols[i * 2 + 1].video(url)
-    except Exception:
-        pass
+    except (OSError, RuntimeError, ValueError):
+        logger.exception("failed to render generated videos")
+        st.warning(tr("Video Generation Failed"))
 
     open_task_folder(task_id)
     logger.info(tr("Video Generation Completed"))

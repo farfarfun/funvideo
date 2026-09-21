@@ -1,22 +1,20 @@
-"""funvideo 冒烟测试套件。
+"""funvideo 服务与公开接口冒烟测试。
 
-本仓库此前没有 tests/ 目录（参见 farfarfun/todo-list issue #103）。
-funvideo 是一个完整的 FastAPI 短视频生成服务（src-layout，50+ 个 .py 文件），
-这里只覆盖最基础的冒烟场景：
+测试隔离真实 LLM、TTS、素材下载及视频渲染等外部服务，覆盖：
 
 - 顶层包 / FastAPI app 对象可以被正常 import 和构建；
 - 应用注册了预期的路由；
 - 几个不依赖真实 LLM / TTS / 下载素材等外部服务的接口可以被 TestClient 正常调用；
 - 真正需要调用大模型的接口，通过 conftest.py 里替换掉的 mock 模型来验证请求/响应
   链路是通的（不发真实网络请求）；
-- 需要真实凭据、真实网络、真实音视频处理管线的场景，用 ``pytest.skip`` 明确跳过。
+- 视频任务、上传下载等公开接口由独立测试通过 mock 隔离外部服务后覆盖。
 """
 
 from fastapi import FastAPI
 
 
 def test_import_top_level_package():
-    """顶层包 funvideo 可以被正常 import（namespace 包，不含顶层 __init__.py）。"""
+    """顶层包 funvideo 可以被正常导入。"""
     import funvideo  # noqa: F401
     import funvideo.app  # noqa: F401
 
@@ -107,25 +105,12 @@ def test_generate_video_terms_endpoint_with_mocked_llm(client, mock_llm_model):
     assert body["data"]["video_terms"] == ["mock term one", "mock term two"]
 
 
-def test_create_video_task_requires_real_pipeline():
-    """POST /api/v1/videos 会触发完整的脚本生成 -> 素材下载 -> TTS -> 视频合成流水线，
-    依赖 pixabay/pexels 的真实 API Key、真实网络下载视频素材，以及真实的音视频编解码
-    （moviepy + ffmpeg）。这些不适合在无凭据的 CI 冒烟测试里跑，故显式跳过。
-    """
-    import pytest as _pytest
-
-    _pytest.skip("需要真实凭据/网络（pixabay/pexels API Key、素材下载），跳过")
-
-
-def test_no_cli_entrypoint_declared():
-    """确认仓库确实没有声明 [project.scripts]，因此没有 CLI --help 场景需要覆盖。
-
-    真正的服务入口是 `funvideo.app.main` / `funvideo.app.asgi`（uvicorn 加载的 ASGI
-    app），已经由上面的测试覆盖到。
-    """
-    import tomllib
+def test_cli_entrypoint_declared():
+    """确认安装包暴露统一的 funvideo CLI。"""
     from pathlib import Path
 
+    import toml
+
     pyproject = Path(__file__).resolve().parent.parent / "pyproject.toml"
-    data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
-    assert "scripts" not in data.get("project", {})
+    data = toml.loads(pyproject.read_text(encoding="utf-8"))
+    assert data["project"]["scripts"]["funvideo"] == "funvideo.cli:app"

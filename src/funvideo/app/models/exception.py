@@ -1,8 +1,7 @@
 import traceback
 from typing import Any
 
-
-from funutil import getLogger
+from farlog import getLogger
 
 logger = getLogger("funvideo")
 

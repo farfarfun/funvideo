@@ -1,5 +1,10 @@
 import threading
-from typing import Callable, Any, Dict
+from collections.abc import Callable
+from typing import Any
+
+from farlog import getLogger
+
+logger = getLogger("funvideo")
 
 
 class TaskManager:
@@ -15,10 +20,12 @@ class TaskManager:
     def add_task(self, func: Callable, *args: Any, **kwargs: Any):
         with self.lock:
             if self.current_tasks < self.max_concurrent_tasks:
-                print(f"add task: {func.__name__}, current_tasks: {self.current_tasks}")
+                logger.info(
+                    f"add task: {func.__name__}, current_tasks: {self.current_tasks}"
+                )
                 self.execute_task(func, *args, **kwargs)
             else:
-                print(
+                logger.info(
                     f"enqueue task: {func.__name__}, current_tasks: {self.current_tasks}"
                 )
                 self.enqueue({"func": func, "args": args, "kwargs": kwargs})
@@ -54,7 +61,7 @@ class TaskManager:
             self.current_tasks -= 1
         self.check_queue()
 
-    def enqueue(self, task: Dict):
+    def enqueue(self, task: dict):
         raise NotImplementedError()
 
     def dequeue(self):

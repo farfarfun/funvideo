@@ -1,22 +1,12 @@
 import math
 import os
 import random
-from typing import List
 
 import moviepy.audio.fx as afx
 import moviepy.video.fx as vfx
-from PIL import ImageFont
+from farlog import getLogger
 from funmaterial.font import random_font_from_zenodo
 from funmaterial.song import random_song_from_zenodo
-from funutil import getLogger
-from funvideo.app.models import const
-from funvideo.app.models.schema import (
-    MaterialInfo,
-    VideoAspect,
-    VideoConcatMode,
-    VideoParams,
-)
-from funvideo.app.utils import utils
 from moviepy import (
     AudioFileClip,
     ColorClip,
@@ -28,7 +18,17 @@ from moviepy import (
     concatenate_videoclips,
 )
 from moviepy.video.tools.subtitles import SubtitlesClip
+from PIL import ImageFont
 from tqdm import tqdm
+
+from funvideo.app.models import const
+from funvideo.app.models.schema import (
+    MaterialInfo,
+    VideoAspect,
+    VideoConcatMode,
+    VideoParams,
+)
+from funvideo.app.utils import utils
 
 logger = getLogger("funvideo")
 
@@ -48,7 +48,7 @@ def get_bgm_file(bgm_type: str = "random", bgm_file: str = ""):
 
 def combine_videos(
     combined_video_path: str,
-    video_paths: List[str],
+    video_paths: list[str],
     audio_file: str,
     video_aspect: VideoAspect = VideoAspect.portrait,
     video_concat_mode: VideoConcatMode = VideoConcatMode.random,
@@ -370,7 +370,7 @@ def process_subtitles(
     return CompositeVideoClip([video_clip, *text_clips])
 
 
-def preprocess_video(materials: List[MaterialInfo], clip_duration=4):
+def preprocess_video(materials: list[MaterialInfo], clip_duration=4):
     for material in materials:
         if not material.url:
             continue

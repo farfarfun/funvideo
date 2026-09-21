@@ -1,6 +1,6 @@
 import warnings
-from enum import Enum
-from typing import Any, List, Optional
+from enum import StrEnum
+from typing import Any
 
 import pydantic
 from pydantic import BaseModel
@@ -13,12 +13,12 @@ warnings.filterwarnings(
 )
 
 
-class VideoConcatMode(str, Enum):
+class VideoConcatMode(StrEnum):
     random = "random"
     sequential = "sequential"
 
 
-class VideoAspect(str, Enum):
+class VideoAspect(StrEnum):
     landscape = "16:9"
     portrait = "9:16"
     square = "1:1"
@@ -99,68 +99,68 @@ class VideoParams(BaseModel):
 
     video_subject: str
     video_script: str = ""  # 用于生成视频的脚本
-    video_terms: Optional[str or list] = None  # 用于生成视频的关键词
-    video_aspect: Optional[VideoAspect] = VideoAspect.portrait.value
-    video_concat_mode: Optional[VideoConcatMode] = VideoConcatMode.random.value
-    video_clip_duration: Optional[int] = 5
-    video_count: Optional[int] = 1
+    video_terms: str | list[str] | None = None  # 用于生成视频的关键词
+    video_aspect: VideoAspect | None = VideoAspect.portrait.value
+    video_concat_mode: VideoConcatMode | None = VideoConcatMode.random.value
+    video_clip_duration: int | None = 5
+    video_count: int | None = 1
 
-    video_source: Optional[str] = "pexels"
-    video_materials: Optional[List[MaterialInfo]] = None  # 用于生成视频的素材
+    video_source: str | None = "pexels"
+    video_materials: list[MaterialInfo] | None = None  # 用于生成视频的素材
 
-    video_language: Optional[str] = ""  # auto detect
+    video_language: str | None = ""  # auto detect
 
-    voice_name: Optional[str] = ""
-    voice_volume: Optional[float] = 1.0
-    voice_rate: Optional[float] = 1.0
-    bgm_type: Optional[str] = "random"
-    bgm_file: Optional[str] = ""
-    bgm_volume: Optional[float] = 0.2
+    voice_name: str | None = ""
+    voice_volume: float | None = 1.0
+    voice_rate: float | None = 1.0
+    bgm_type: str | None = "random"
+    bgm_file: str | None = ""
+    bgm_volume: float | None = 0.2
 
-    subtitle_enabled: Optional[bool] = True
-    subtitle_position: Optional[str] = "bottom"  # top, bottom, center
+    subtitle_enabled: bool | None = True
+    subtitle_position: str | None = "bottom"  # top, bottom, center
     custom_position: float = 70.0
-    font_name: Optional[str] = "STHeitiMedium.ttc"
-    text_fore_color: Optional[str] = "#FFFFFF"
-    text_background_color: Optional[str] = "transparent"
+    font_name: str | None = "STHeitiMedium.ttc"
+    text_fore_color: str | None = "#FFFFFF"
+    text_background_color: str | None = "transparent"
 
     font_size: int = 60
-    stroke_color: Optional[str] = "#000000"
+    stroke_color: str | None = "#000000"
     stroke_width: float = 1.5
-    n_threads: Optional[int] = 2
-    paragraph_number: Optional[int] = 1
+    n_threads: int | None = 2
+    paragraph_number: int | None = 1
 
 
 class SubtitleRequest(BaseModel):
     video_script: str
-    video_language: Optional[str] = ""
-    voice_name: Optional[str] = "zh-CN-XiaoxiaoNeural-Female"
-    voice_volume: Optional[float] = 1.0
-    voice_rate: Optional[float] = 1.2
-    bgm_type: Optional[str] = "random"
-    bgm_file: Optional[str] = ""
-    bgm_volume: Optional[float] = 0.2
-    subtitle_position: Optional[str] = "bottom"
-    font_name: Optional[str] = "STHeitiMedium.ttc"
-    text_fore_color: Optional[str] = "#FFFFFF"
-    text_background_color: Optional[str] = "transparent"
+    video_language: str | None = ""
+    voice_name: str | None = "zh-CN-XiaoxiaoNeural-Female"
+    voice_volume: float | None = 1.0
+    voice_rate: float | None = 1.2
+    bgm_type: str | None = "random"
+    bgm_file: str | None = ""
+    bgm_volume: float | None = 0.2
+    subtitle_position: str | None = "bottom"
+    font_name: str | None = "STHeitiMedium.ttc"
+    text_fore_color: str | None = "#FFFFFF"
+    text_background_color: str | None = "transparent"
     font_size: int = 60
-    stroke_color: Optional[str] = "#000000"
+    stroke_color: str | None = "#000000"
     stroke_width: float = 1.5
-    video_source: Optional[str] = "local"
-    subtitle_enabled: Optional[str] = "true"
+    video_source: str | None = "local"
+    subtitle_enabled: str | None = "true"
 
 
 class AudioRequest(BaseModel):
     video_script: str
-    video_language: Optional[str] = ""
-    voice_name: Optional[str] = "zh-CN-XiaoxiaoNeural-Female"
-    voice_volume: Optional[float] = 1.0
-    voice_rate: Optional[float] = 1.2
-    bgm_type: Optional[str] = "random"
-    bgm_file: Optional[str] = ""
-    bgm_volume: Optional[float] = 0.2
-    video_source: Optional[str] = "local"
+    video_language: str | None = ""
+    voice_name: str | None = "zh-CN-XiaoxiaoNeural-Female"
+    voice_volume: float | None = 1.0
+    voice_rate: float | None = 1.2
+    bgm_type: str | None = "random"
+    bgm_file: str | None = ""
+    bgm_volume: float | None = 0.2
+    video_source: str | None = "local"
 
 
 class VideoScriptParams:
@@ -172,9 +172,9 @@ class VideoScriptParams:
     }
     """
 
-    video_subject: Optional[str] = "春天的花海"
-    video_language: Optional[str] = ""
-    paragraph_number: Optional[int] = 1
+    video_subject: str | None = "春天的花海"
+    video_language: str | None = ""
+    paragraph_number: int | None = 1
 
 
 class VideoTermsParams:
@@ -186,16 +186,16 @@ class VideoTermsParams:
     }
     """
 
-    video_subject: Optional[str] = "春天的花海"
-    video_script: Optional[str] = (
+    video_subject: str | None = "春天的花海"
+    video_script: str | None = (
         "春天的花海，如诗如画般展现在眼前。万物复苏的季节里，大地披上了一袭绚丽多彩的盛装。金黄的迎春、粉嫩的樱花、洁白的梨花、艳丽的郁金香……"
     )
-    amount: Optional[int] = 5
+    amount: int | None = 5
 
 
 class BaseResponse(BaseModel):
     status: int = 200
-    message: Optional[str] = "success"
+    message: str | None = "success"
     data: Any = None
 
 

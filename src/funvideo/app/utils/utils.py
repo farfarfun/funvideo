@@ -2,18 +2,21 @@ import json
 import locale
 import os
 import threading
+from collections.abc import Callable
 from typing import Any
 from uuid import uuid4
 
 import urllib3
-from funutil import getLogger
+from farlog import getLogger
+
 from funvideo.app.models import const
 
 logger = getLogger("funvideo")
 urllib3.disable_warnings()
 
 
-def get_response(status: int, data: Any = None, message: str = ""):
+def get_response(status: int, data: Any = None, message: str = "") -> dict[str, Any]:
+    """构造统一响应；参数为状态码、可选数据和消息，返回响应字典。"""
     obj = {
         "status": status,
     }
@@ -24,10 +27,11 @@ def get_response(status: int, data: Any = None, message: str = ""):
     return obj
 
 
-def to_json(obj):
+def to_json(obj: Any) -> str | None:
+    """将对象转为 JSON；参数为任意对象，失败时记录日志并返回 ``None``。"""
     try:
         # 定义一个辅助函数来处理不同类型的对象
-        def serialize(o):
+        def serialize(o: Any) -> Any:
             # 如果对象是可序列化类型，直接返回
             if isinstance(o, (int, float, bool, str)) or o is None:
                 return o
@@ -52,22 +56,26 @@ def to_json(obj):
 
         # 序列化处理后的对象为JSON字符串
         return json.dumps(serialized_obj, ensure_ascii=False, indent=4)
-    except Exception as e:
+    except (TypeError, ValueError, RecursionError) as exc:
+        logger.warning(f"serialize object failed: {exc}")
         return None
 
 
-def get_uuid(remove_hyphen: bool = False):
+def get_uuid(remove_hyphen: bool = False) -> str:
+    """生成 UUID；参数控制是否移除连字符，返回字符串 ID。"""
     u = str(uuid4())
     if remove_hyphen:
         u = u.replace("-", "")
     return u
 
 
-def root_dir():
+def root_dir() -> str:
+    """返回当前工作目录对应的项目根路径。"""
     return "./"
 
 
-def storage_dir(sub_dir: str = "", create: bool = False):
+def storage_dir(sub_dir: str = "", create: bool = False) -> str:
+    """返回素材存储目录；可指定子目录并按需创建。"""
     d = os.path.join(root_dir(), "material")
     if sub_dir:
         d = os.path.join(d, sub_dir)
@@ -77,14 +85,16 @@ def storage_dir(sub_dir: str = "", create: bool = False):
     return d
 
 
-def resource_dir(sub_dir: str = ""):
+def resource_dir(sub_dir: str = "") -> str:
+    """返回资源目录；参数为可选子目录名。"""
     d = os.path.join(root_dir(), "material")
     if sub_dir:
         d = os.path.join(d, sub_dir)
     return d
 
 
-def task_dir(sub_dir: str = ""):
+def task_dir(sub_dir: str = "") -> str:
+    """返回并确保任务目录存在；参数为可选任务子目录。"""
     d = os.path.join(storage_dir(), "tasks")
     if sub_dir:
         d = os.path.join(d, sub_dir)
@@ -93,7 +103,8 @@ def task_dir(sub_dir: str = ""):
     return d
 
 
-def font_dir(sub_dir: str = ""):
+def font_dir(sub_dir: str = "") -> str:
+    """返回并确保字体目录存在；参数为可选子目录。"""
     d = resource_dir("fonts")
     if sub_dir:
         d = os.path.join(d, sub_dir)
@@ -102,7 +113,8 @@ def font_dir(sub_dir: str = ""):
     return d
 
 
-def song_dir(sub_dir: str = ""):
+def song_dir(sub_dir: str = "") -> str:
+    """返回并确保音乐目录存在；参数为可选子目录。"""
     d = resource_dir("songs")
     if sub_dir:
         d = os.path.join(d, sub_dir)
@@ -111,7 +123,8 @@ def song_dir(sub_dir: str = ""):
     return d
 
 
-def public_dir(sub_dir: str = ""):
+def public_dir(sub_dir: str = "") -> str:
+    """返回并确保静态资源目录存在；参数为可选子目录。"""
     d = resource_dir("public")
     if sub_dir:
         d = os.path.join(d, sub_dir)
@@ -120,7 +133,11 @@ def public_dir(sub_dir: str = ""):
     return d
 
 
-def run_in_background(func, *args, **kwargs):
+def run_in_background(
+    func: Callable[..., Any], *args: Any, **kwargs: Any
+) -> threading.Thread:
+    """在线程中运行函数；参数透传给函数，返回已启动的线程。"""
+
     def run():
         try:
             func(*args, **kwargs)
@@ -132,38 +149,33 @@ def run_in_background(func, *args, **kwargs):
     return thread
 
 
-def time_convert_seconds_to_hmsm(seconds) -> str:
+def time_convert_seconds_to_hmsm(seconds: float) -> str:
+    """将秒数转换为 SRT 时间戳字符串。"""
     hours = int(seconds // 3600)
     seconds = seconds % 3600
     minutes = int(seconds // 60)
     milliseconds = int(seconds * 1000) % 1000
     seconds = int(seconds % 60)
-    return "{:02d}:{:02d}:{:02d},{:03d}".format(hours, minutes, seconds, milliseconds)
+    return f"{hours:02d}:{minutes:02d}:{seconds:02d},{milliseconds:03d}"
 
 
 def text_to_srt(idx: int, msg: str, start_time: float, end_time: float) -> str:
+    """将序号、文本和起止秒数组装成 SRT 字幕块。"""
     start_time = time_convert_seconds_to_hmsm(start_time)
     end_time = time_convert_seconds_to_hmsm(end_time)
-    srt = """%d
-%s --> %s
-%s
-        """ % (
-        idx,
-        start_time,
-        end_time,
-        msg,
-    )
-    return srt
+    return f"{idx}\n{start_time} --> {end_time}\n{msg}\n        "
 
 
-def str_contains_punctuation(word):
+def str_contains_punctuation(word: str) -> bool:
+    """判断文本是否包含字幕分隔标点。"""
     for p in const.PUNCTUATIONS:
         if p in word:
             return True
     return False
 
 
-def split_string_by_punctuations(s):
+def split_string_by_punctuations(s: str) -> list[str]:
+    """按字幕标点拆分文本，返回非空片段列表。"""
     result = []
     txt = ""
 
@@ -197,33 +209,31 @@ def split_string_by_punctuations(s):
     return result
 
 
-def md5(text):
+def md5(text: str) -> str:
+    """计算文本 MD5；参数为明文字符串，返回十六进制摘要。"""
     import hashlib
 
-    return hashlib.md5(text.encode("utf-8")).hexdigest()
+    return hashlib.md5(text.encode("utf-8"), usedforsecurity=False).hexdigest()
 
 
-def get_system_locale():
-    try:
-        loc = locale.getdefaultlocale()
-        # zh_CN, zh_TW return zh
-        # en_US, en_GB return en
-        language_code = loc[0].split("_")[0]
-        return language_code
-    except Exception as e:
-        return "en"
+def get_system_locale() -> str:
+    """返回系统语言代码，无法识别时返回英语。"""
+    language = locale.getlocale()[0]
+    return language.split("_")[0] if language else "en"
 
 
-def load_locales(i18n_dir):
+def load_locales(i18n_dir: str) -> dict[str, Any]:
+    """读取国际化目录中的 JSON 文件，返回按语言代码索引的字典。"""
     _locales = {}
     for root, dirs, files in os.walk(i18n_dir):
         for file in files:
             if file.endswith(".json"):
                 lang = file.split(".")[0]
-                with open(os.path.join(root, file), "r", encoding="utf-8") as f:
+                with open(os.path.join(root, file), encoding="utf-8") as f:
                     _locales[lang] = json.loads(f.read())
     return _locales
 
 
-def parse_extension(filename):
+def parse_extension(filename: str) -> str:
+    """返回文件名的小写扩展名，不包含点号。"""
     return os.path.splitext(filename)[1].strip().lower().replace(".", "")

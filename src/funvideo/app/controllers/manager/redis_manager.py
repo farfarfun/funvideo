@@ -1,7 +1,7 @@
 import json
-from typing import Dict
 
 import redis
+
 from funvideo.app.controllers.manager.base_manager import TaskManager
 from funvideo.app.models.schema import VideoParams
 from funvideo.app.services import task as tm
@@ -20,7 +20,7 @@ class RedisTaskManager(TaskManager):
     def create_queue(self):
         return "task_queue"
 
-    def enqueue(self, task: Dict):
+    def enqueue(self, task: dict):
         task_with_serializable_params = task.copy()
 
         if "params" in task["kwargs"] and isinstance(

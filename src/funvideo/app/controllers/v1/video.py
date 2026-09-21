@@ -2,11 +2,14 @@ import glob
 import os
 import pathlib
 import shutil
-from typing import Union
+from collections.abc import Iterator
+from typing import Any
 
+from farlog import getLogger
 from fastapi import BackgroundTasks, Depends, Path, Request, UploadFile
 from fastapi.params import File
 from fastapi.responses import FileResponse, StreamingResponse
+
 from funvideo.app.config import config
 from funvideo.app.controllers import base
 from funvideo.app.controllers.manager.memory_manager import InMemoryTaskManager
@@ -28,9 +31,6 @@ from funvideo.app.services import state as sm
 from funvideo.app.services import task as tm
 from funvideo.app.utils import utils
 
-
-from funutil import getLogger
-
 logger = getLogger("funvideo")
 # 认证依赖项
 # router = new_router(dependencies=[Depends(base.verify_token)])
@@ -40,7 +40,7 @@ _enable_redis = config.app.get("enable_redis", False)
 _redis_host = config.app.get("redis_host", "localhost")
 _redis_port = config.app.get("redis_port", 6379)
 _redis_db = config.app.get("redis_db", 0)
-_redis_password = config.app.get("redis_password", None)
+_redis_password = config.get_secret("app", "redis_password")
 _max_concurrent_tasks = config.app.get("max_concurrent_tasks", 5)
 
 redis_url = f"redis://:{_redis_password}@{_redis_host}:{_redis_port}/{_redis_db}"
@@ -56,29 +56,69 @@ else:
 @router.post("/videos", response_model=TaskResponse, summary="Generate a short video")
 def create_video(
     background_tasks: BackgroundTasks, request: Request, body: TaskVideoRequest
-):
+) -> dict[str, Any]:
+    """创建完整视频生成任务。
+
+    Args:
+        background_tasks: FastAPI 后台任务容器。
+        request: 当前请求。
+        body: 视频生成参数。
+
+    Returns:
+        包含任务 ID 的标准响应字典。
+    """
     return create_task(request, body, stop_at="video")
 
 
 @router.post("/subtitle", response_model=TaskResponse, summary="Generate subtitle only")
 def create_subtitle(
     background_tasks: BackgroundTasks, request: Request, body: SubtitleRequest
-):
+) -> dict[str, Any]:
+    """创建仅生成字幕的任务。
+
+    Args:
+        background_tasks: FastAPI 后台任务容器。
+        request: 当前请求。
+        body: 字幕和语音参数。
+
+    Returns:
+        包含任务 ID 的标准响应字典。
+    """
     return create_task(request, body, stop_at="subtitle")
 
 
 @router.post("/audio", response_model=TaskResponse, summary="Generate audio only")
 def create_audio(
     background_tasks: BackgroundTasks, request: Request, body: AudioRequest
-):
+) -> dict[str, Any]:
+    """创建仅生成音频的任务。
+
+    Args:
+        background_tasks: FastAPI 后台任务容器。
+        request: 当前请求。
+        body: 音频生成参数。
+
+    Returns:
+        包含任务 ID 的标准响应字典。
+    """
     return create_task(request, body, stop_at="audio")
 
 
 def create_task(
     request: Request,
-    body: Union[TaskVideoRequest, SubtitleRequest, AudioRequest],
+    body: TaskVideoRequest | SubtitleRequest | AudioRequest,
     stop_at: str,
-):
+) -> dict[str, Any]:
+    """登记生成任务并交给任务管理器执行。
+
+    Args:
+        request: 当前请求。
+        body: 视频、字幕或音频参数。
+        stop_at: 流水线停止阶段。
+
+    Returns:
+        包含任务 ID 的标准响应字典。
+    """
     task_id = utils.get_uuid()
     request_id = base.get_task_id(request)
     try:
@@ -104,7 +144,17 @@ def get_task(
     request: Request,
     task_id: str = Path(..., description="Task ID"),
     query: TaskQueryRequest = Depends(),
-):
+) -> dict[str, Any]:
+    """查询任务状态和产物地址。
+
+    Args:
+        request: 当前请求，用于生成产物 URL。
+        task_id: 待查询的任务 ID。
+        query: 查询参数对象。
+
+    Returns:
+        任务状态和产物信息。
+    """
     endpoint = config.app.get("endpoint", "")
     if not endpoint:
         endpoint = str(request.base_url)
@@ -115,9 +165,9 @@ def get_task(
     if task:
         task_dir = utils.task_dir()
 
-        def file_to_uri(file):
+        def file_to_uri(file: str) -> str:
             if not file.startswith(endpoint):
-                _uri_path = v.replace(task_dir, "tasks").replace("\\", "/")
+                _uri_path = file.replace(task_dir, "tasks").replace("\\", "/")
                 _uri_path = f"{endpoint}/{_uri_path}"
             else:
                 _uri_path = file
@@ -147,7 +197,18 @@ def get_task(
     response_model=TaskDeletionResponse,
     summary="Delete a generated short video task",
 )
-def delete_video(request: Request, task_id: str = Path(..., description="Task ID")):
+def delete_video(
+    request: Request, task_id: str = Path(..., description="Task ID")
+) -> dict[str, Any]:
+    """删除任务状态和本地产物目录。
+
+    Args:
+        request: 当前请求。
+        task_id: 待删除的任务 ID。
+
+    Returns:
+        标准成功响应字典。
+    """
     request_id = base.get_task_id(request)
     task = sm.state.get_task(task_id)
     if task:
@@ -168,7 +229,15 @@ def delete_video(request: Request, task_id: str = Path(..., description="Task ID
 @router.get(
     "/musics", response_model=BgmRetrieveResponse, summary="Retrieve local BGM files"
 )
-def get_bgm_list(request: Request):
+def get_bgm_list(request: Request) -> dict[str, Any]:
+    """返回本地可用的 MP3 背景音乐列表。
+
+    Args:
+        request: 当前请求。
+
+    Returns:
+        包含文件名、大小和路径的标准响应字典。
+    """
     suffix = "*.mp3"
     song_dir = utils.song_dir()
     files = glob.glob(os.path.join(song_dir, suffix))
@@ -190,12 +259,21 @@ def get_bgm_list(request: Request):
     response_model=BgmUploadResponse,
     summary="Upload the BGM file to the songs directory",
 )
-def upload_bgm_file(request: Request, file: UploadFile = File(...)):
+def upload_bgm_file(request: Request, file: UploadFile = File(...)) -> dict[str, Any]:
+    """上传 MP3 背景音乐。
+
+    Args:
+        request: 当前请求。
+        file: 待上传的 MP3 文件。
+
+    Returns:
+        保存后的文件路径。
+    """
     request_id = base.get_task_id(request)
-    # check file ext
-    if file.filename.endswith("mp3"):
+    filename = pathlib.Path(file.filename or "").name
+    if pathlib.Path(filename).suffix.lower() == ".mp3":
         song_dir = utils.song_dir()
-        save_path = os.path.join(song_dir, file.filename)
+        save_path = os.path.join(song_dir, filename)
         # save file
         with open(save_path, "wb+") as buffer:
             # If the file already exists, it will be overwritten
@@ -210,9 +288,17 @@ def upload_bgm_file(request: Request, file: UploadFile = File(...)):
 
 
 @router.get("/stream/{file_path:path}")
-async def stream_video(request: Request, file_path: str):
-    tasks_dir = utils.task_dir()
-    video_path = os.path.join(tasks_dir, file_path)
+async def stream_video(request: Request, file_path: str) -> StreamingResponse:
+    """按 HTTP Range 流式返回任务视频。
+
+    Args:
+        request: 当前请求，可能包含 Range 头。
+        file_path: 相对于任务目录的视频路径。
+
+    Returns:
+        支持分段读取的视频响应。
+    """
+    video_path = _resolve_task_file(file_path)
     range_header = request.headers.get("Range")
     video_size = os.path.getsize(video_path)
     start, end = 0, video_size - 1
@@ -228,7 +314,9 @@ async def stream_video(request: Request, file_path: str):
             end = video_size - 1
         length = end - start + 1
 
-    def file_iterator(file_path, offset=0, bytes_to_read=None):
+    def file_iterator(
+        file_path: pathlib.Path, offset: int = 0, bytes_to_read: int | None = None
+    ) -> Iterator[bytes]:
         with open(file_path, "rb") as f:
             f.seek(offset, os.SEEK_SET)
             remaining = bytes_to_read or video_size
@@ -252,16 +340,18 @@ async def stream_video(request: Request, file_path: str):
 
 
 @router.get("/download/{file_path:path}")
-async def download_video(_: Request, file_path: str):
+async def download_video(_: Request, file_path: str) -> FileResponse:
+    """下载任务视频。
+
+    Args:
+        _: 当前请求。
+        file_path: 相对于任务目录的视频路径。
+
+    Returns:
+        视频文件下载响应。
     """
-    download video
-    :param _: Request request
-    :param file_path: video file path, eg: /cd1727ed-3473-42a2-a7da-4faafafec72b/final-1.mp4
-    :return: video file
-    """
-    tasks_dir = utils.task_dir()
-    video_path = os.path.join(tasks_dir, file_path)
-    file_path = pathlib.Path(video_path)
+    video_path = _resolve_task_file(file_path)
+    file_path = video_path
     filename = file_path.stem
     extension = file_path.suffix
     headers = {"Content-Disposition": f"attachment; filename={filename}{extension}"}
@@ -271,3 +361,12 @@ async def download_video(_: Request, file_path: str):
         filename=f"{filename}{extension}",
         media_type=f"video/{extension[1:]}",
     )
+
+
+def _resolve_task_file(file_path: str) -> pathlib.Path:
+    """解析任务文件路径，并拒绝目录穿越和不存在的文件。"""
+    tasks_dir = pathlib.Path(utils.task_dir()).resolve()
+    target = (tasks_dir / file_path).resolve()
+    if not target.is_relative_to(tasks_dir) or not target.is_file():
+        raise HttpException("", status_code=404, message="video file not found")
+    return target

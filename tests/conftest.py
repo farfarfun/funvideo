@@ -1,18 +1,13 @@
 """pytest 全局配置：为 funvideo 冒烟测试提供隔离的运行环境。
 
-funvideo 在导入期间存在两个副作用，需要在测试环境中妥善处理：
-
-1. `funvideo.app.config.core.Config` 会在模块导入时基于**当前工作目录**读取
+`funvideo.app.config.core.Config` 会在模块导入时基于**当前工作目录**读取
    `./config.toml`。仓库中并没有随附 `config.example.toml`，因此如果裸跑在
    仓库根目录下会直接在 import 阶段抛出 ``FileNotFoundError``。
-2. `funvideo.app.services.llm` 在模块导入时会直接调用
-   ``funai.llm.get_model("deepseek")`` 构造一个真实的 DeepSeek/OpenAI 兼容客户端，
-   如果没有配置真实的 API Key，会在 import 阶段直接抛出 ``openai.OpenAIError``。
 
 这里通过一个 session 级、autouse 的 fixture：
 - 切换到一个临时目录，并预先放置一个空的 ``config.toml``（各配置项都有默认值，
   空文件即可正常解析）；
-- 在任何测试首次触发 funvideo 服务层导入之前，替换掉 ``funai.llm.get_model``，
+- 替换 ``funai.llm.get_model``，
   避免真实网络请求 / 凭据校验。
 
 之后各测试文件里对 funvideo 的 import 都必须放在测试函数体内（而不是模块顶层），
@@ -58,7 +53,7 @@ def fastapi_app(_funvideo_isolated_env):
 
 @pytest.fixture(scope="session")
 def mock_llm_model(fastapi_app, _funvideo_isolated_env):
-    """funvideo.app.services.llm.model 实际绑定的 mock 对象，供测试按需配置返回值。"""
+    """返回服务懒加载后复用的 mock 模型，供测试按需配置返回值。"""
     return _funvideo_isolated_env
 
 

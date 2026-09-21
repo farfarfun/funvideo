@@ -112,7 +112,7 @@ _enable_redis = config.app.get("enable_redis", False)
 _redis_host = config.app.get("redis_host", "localhost")
 _redis_port = config.app.get("redis_port", 6379)
 _redis_db = config.app.get("redis_db", 0)
-_redis_password = config.app.get("redis_password", None)
+_redis_password = config.get_secret("app", "redis_password")
 
 state = (
     RedisState(

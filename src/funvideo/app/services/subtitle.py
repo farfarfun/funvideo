@@ -1,13 +1,12 @@
-import json
 import os.path
 import re
 from timeit import default_timer as timer
 
+from farlog import getLogger
 from faster_whisper import WhisperModel
+
 from funvideo.app.config import config
 from funvideo.app.utils import utils
-
-from funutil import getLogger
 
 logger = getLogger("funvideo")
 model_size = config.whisper.get("model_size", "large-v3")
@@ -66,7 +65,7 @@ def create(audio_file, subtitle_file: str = ""):
         if not seg_text:
             return
 
-        msg = "[%.2fs -> %.2fs] %s" % (seg_start, seg_end, seg_text)
+        msg = f"[{seg_start:.2f}s -> {seg_end:.2f}s] {seg_text}"
         logger.debug(msg)
 
         subtitles.append(
@@ -145,7 +144,7 @@ def file_to_subtitles(filename):
     current_times = None
     current_text = ""
     index = 0
-    with open(filename, "r", encoding="utf-8") as f:
+    with open(filename, encoding="utf-8") as f:
         for line in f:
             times = re.findall("([0-9]*:[0-9]*:[0-9]*,[0-9]*)", line)
             if times:
@@ -277,24 +276,3 @@ def correct(subtitle_file, video_script):
         logger.info("Subtitle corrected")
     else:
         logger.success("Subtitle is correct")
-
-
-if __name__ == "__main__":
-    task_id = "c12fd1e6-4b0a-4d65-a075-c87abe35a072"
-    task_dir = utils.task_dir(task_id)
-    subtitle_file = f"{task_dir}/subtitle.srt"
-    audio_file = f"{task_dir}/audio.mp3"
-
-    subtitles = file_to_subtitles(subtitle_file)
-    print(subtitles)
-
-    script_file = f"{task_dir}/script.json"
-    with open(script_file, "r") as f:
-        script_content = f.read()
-    s = json.loads(script_content)
-    script = s.get("script")
-
-    correct(subtitle_file, script)
-
-    subtitle_file = f"{task_dir}/subtitle-test.srt"
-    create(audio_file, subtitle_file)
