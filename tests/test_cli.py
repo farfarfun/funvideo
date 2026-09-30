@@ -30,3 +30,16 @@ def test_server_options_prefer_cli_over_config(tmp_path: Path) -> None:
         "0.0.0.0",
         8080,
     )
+
+
+def test_server_commands_require_environment() -> None:
+    for command in ("start", "run", "stop", "restart", "status"):
+        result = runner.invoke(cli.app, ["server", command])
+        assert result.exit_code != 0
+
+
+def test_runtime_files_are_kept_in_run_directory(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    pid_file, log_file = cli._state_paths(cli.Environment.prod)
+    assert pid_file == tmp_path / ".run" / "funvideo-prod.pid"
+    assert log_file == tmp_path / ".run" / "funvideo-prod.log"

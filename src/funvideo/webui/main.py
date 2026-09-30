@@ -72,8 +72,9 @@ if "ui_language" not in st.session_state:
     st.session_state["ui_language"] = config.ui.get("language", system_locale)
 
 
-def get_all_fonts():
-    fonts = []
+def get_all_fonts() -> list[str]:
+    """返回字体资源目录中的字体文件名列表。"""
+    fonts: list[str] = []
     for root, dirs, files in os.walk(font_dir):
         for file in files:
             if file.endswith(".ttf") or file.endswith(".ttc"):
@@ -82,8 +83,9 @@ def get_all_fonts():
     return fonts
 
 
-def get_all_songs():
-    songs = []
+def get_all_songs() -> list[str]:
+    """返回音乐资源目录中的 MP3 文件名列表。"""
+    songs: list[str] = []
     for root, dirs, files in os.walk(song_dir):
         for file in files:
             if file.endswith(".mp3"):
@@ -91,7 +93,8 @@ def get_all_songs():
     return songs
 
 
-def open_task_folder(task_id):
+def open_task_folder(task_id: str) -> None:
+    """在支持的桌面系统中打开指定任务的输出目录。"""
     try:
         system = platform.system()
         path = os.path.join(root_dir, "storage", "tasks", task_id)
@@ -104,7 +107,8 @@ def open_task_folder(task_id):
         logger.error(f"failed to open task folder: {exc}")
 
 
-def scroll_to_bottom():
+def scroll_to_bottom() -> None:
+    """将 Streamlit 主内容区域滚动到底部。"""
     js = """
     <script>
         console.log("scroll_to_bottom");
@@ -121,11 +125,12 @@ def scroll_to_bottom():
     st.components.v1.html(js, height=0, width=0)
 
 
-def init_log():
+def init_log() -> None:
+    """初始化 Web 界面的日志输出格式。"""
     logger.remove()
     _lvl = "DEBUG"
 
-    def format_record(record):
+    def format_record(record: dict) -> str:
         # 获取日志记录中的文件全路径
         file_path = record["file"].path
         # 将绝对路径转换为相对于项目根目录的路径
@@ -158,7 +163,8 @@ init_log()
 locales = utils.load_locales(i18n_dir)
 
 
-def tr(key):
+def tr(key: str) -> str:
+    """按当前界面语言翻译给定文本键。"""
     loc = locales.get(st.session_state["ui_language"], {})
     return loc.get("Translation", {}).get(key, key)
 

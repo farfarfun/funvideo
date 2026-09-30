@@ -10,9 +10,9 @@ readonly CLI_NAME PACKAGE_NAME PORT CONFIG_PATH
 
 usage() {
   cat >&2 <<'EOF'
-用法：scripts/setup.sh <动作> [版本]
+用法：scripts/setup.sh <动作> <dev|prod>
 
-服务：start | stop | restart | run | status
+服务：start | stop | restart | run | status（必须指定 dev 或 prod）
 安装：install-dev | install-prod [版本]
 发布：publish
 维护：upgrade [版本] | rollback <版本> | uninstall
@@ -33,11 +33,12 @@ cli_options() {
 
 run_server_action() {
   local action="$1"
+  local environment="$2"
   cli_options
   if [[ "${action}" == "run" ]]; then
-    exec "${CLI_NAME}" server run "${CLI_OPTIONS[@]}"
+    exec "${CLI_NAME}" server run "${environment}" "${CLI_OPTIONS[@]}"
   fi
-  "${CLI_NAME}" server "${action}" "${CLI_OPTIONS[@]}"
+  "${CLI_NAME}" server "${action}" "${environment}" "${CLI_OPTIONS[@]}"
 }
 
 install_prod() {
@@ -59,8 +60,9 @@ main() {
 
   case "${action}" in
   start | stop | restart | run | status)
-    (( $# == 0 )) || die "${action} 不接受额外参数"
-    run_server_action "${action}"
+    (( $# == 1 )) || die "${action} 必须指定 dev 或 prod"
+    [[ "$1" == "dev" || "$1" == "prod" ]] || die "运行环境必须是 dev 或 prod"
+    run_server_action "${action}" "$1"
     ;;
   install-dev)
     (( $# == 0 )) || die "install-dev 不接受额外参数"

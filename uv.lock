@@ -959,6 +959,7 @@ source = { editable = "." }
 dependencies = [
     { name = "cryptography" },
     { name = "edge-tts" },
+    { name = "farcache" },
     { name = "farlog" },
     { name = "fastapi" },
     { name = "faster-whisper" },
@@ -992,6 +993,7 @@ dev = [
 requires-dist = [
     { name = "cryptography", specifier = ">=50.0.1" },
     { name = "edge-tts", specifier = "~=6.1.10" },
+    { name = "farcache", specifier = ">=2.0.3" },
     { name = "farlog", specifier = ">=1.1.8" },
     { name = "fastapi", specifier = ">=0.110.0" },
     { name = "faster-whisper", specifier = ">=1.1.0" },

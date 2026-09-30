@@ -33,8 +33,8 @@ class Config:
         self.azure = self._cfg.get("azure", {})
         self.ui = self._cfg.get("ui", {})
 
-        self.log_level = self._cfg.get("log_level", "DEBUG")
-        self.listen_host = self._cfg.get("listen_host", "0.0.0.0")
+        self.log_level = self._cfg.get("log_level", "INFO")
+        self.listen_host = self._cfg.get("listen_host", "127.0.0.1")
         self.listen_port = self._cfg.get("listen_port", 8080)
         self.project_name = self._cfg.get("project_name", "MoneyPrinterTurbo")
         self.project_description = ""
@@ -150,11 +150,7 @@ class Config:
         env_key = f"FUNVIDEO_{section}_{key}".upper()
         if env_key in os.environ:
             return os.environ[env_key]
-        try:
-            value = read_secret("funvideo", section, key)
-        except Exception as exc:
-            logger.warning(f"read secret failed for {section}.{key}: {exc}")
-            value = None
+        value = read_secret("funvideo", section, key)
         if value is not None:
             return value
         return default

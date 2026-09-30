@@ -11,10 +11,10 @@ pip install funvideo
 ## 作为服务运行
 
 ```bash
-funvideo server run --host 0.0.0.0 --port 8080
+funvideo server run dev --host 127.0.0.1 --port 8080
 ```
 
-后台运行使用 `funvideo server start`，并通过 `stop`、`restart`、`status` 管理服务。源码仓库中的 `scripts/setup.sh` 是相同命令的薄封装，并额外提供安装、升级、回滚、卸载与发布动作。
+后台运行使用 `funvideo server start dev`（生产环境改为 `prod`），并通过带相同环境参数的 `stop`、`restart`、`status` 管理服务。源码仓库中的 `scripts/setup.sh` 是相同命令的薄封装，并额外提供安装、升级、回滚、卸载与发布动作。
 
 启动后可在 `http://127.0.0.1:8080/docs` 查看接口文档。`--config` 支持 TOML、JSON 和 `.env`；省略时使用 `~/.config/farfarfun/funvideo/config.toml`。LLM 和素材平台密钥通过环境变量或 `funsecret` 管理，不写入普通配置文件。主要接口（见 `src/funvideo/app/router.py`）：
 

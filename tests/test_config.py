@@ -18,6 +18,15 @@ def test_config_path_priority_and_missing_file(tmp_path, monkeypatch):
     assert Config(config_file=str(tmp_path / "missing.toml")).app == {}
 
 
+def test_config_defaults_are_local_and_non_debug(tmp_path):
+    """缺少显式配置时使用安全的监听地址和日志级别。"""
+    from funvideo.app.config.core import Config
+
+    config = Config(config_file=str(tmp_path / "missing.toml"))
+    assert config.listen_host == "127.0.0.1"
+    assert config.log_level == "INFO"
+
+
 def test_config_reads_json_and_env(tmp_path):
     """JSON 和简单 KEY=VALUE 配置均能保留嵌套结构与基础类型。"""
     from funvideo.app.config.core import Config
@@ -82,3 +91,16 @@ def test_secrets_use_funsecret_and_never_persist(tmp_path, monkeypatch):
     assert "new-secret" not in saved
     assert "legacy-secret" not in saved
     assert "llm_provider" in saved
+
+
+def test_secret_storage_errors_are_not_hidden(tmp_path, monkeypatch):
+    """密钥存储故障必须向调用方传播，不能降级成缺失值。"""
+    from funvideo.app.config import core
+
+    def fail_read(*args):
+        raise PermissionError("secret store is not readable")
+
+    monkeypatch.setattr(core, "read_secret", fail_read)
+    config = core.Config(config_file=str(tmp_path / "missing.toml"))
+    with pytest.raises(PermissionError, match="secret store is not readable"):
+        config.get_secret("app", "deepseek_api_key")

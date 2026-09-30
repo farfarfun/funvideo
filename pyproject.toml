@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
 license-files = ["LICENSE", "NOTICE"]
-dependencies = [ "edge-tts~=6.1.10", "faster-whisper>=1.1.0", "funai>=1.0.1", "funtalk>=1.0.11", "moviepy>=2.0.0", "openai>=1.54.5", "fastapi>=0.110.0", "uvicorn>=0.30.0", "toml>=0.10.2", "funmaterial>=1.0.0", "redis>=5.0.0", "python-multipart>=0.0.9", "cryptography>=50.0.1", "farlog>=1.1.8", "funsecret>=1.4.96", "funshell>=1.0.23", "typer>=0.12",]
+dependencies = [ "edge-tts~=6.1.10", "farcache>=2.0.3", "faster-whisper>=1.1.0", "funai>=1.0.1", "funtalk>=1.0.11", "moviepy>=2.0.0", "openai>=1.54.5", "fastapi>=0.110.0", "uvicorn>=0.30.0", "toml>=0.10.2", "funmaterial>=1.0.0", "redis>=5.0.0", "python-multipart>=0.0.9", "cryptography>=50.0.1", "farlog>=1.1.8", "funsecret>=1.4.96", "funshell>=1.0.23", "typer>=0.12",]
 
 [project.optional-dependencies]
 webui = ["streamlit>=1.40"]

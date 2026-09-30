@@ -2,10 +2,10 @@ import math
 import re
 from os import path
 
+from farcache import disk_cache
 from farlog import getLogger
 from funmaterial.video.download import download_videos
 from funtalk.tts import tts_generate
-from funutil.cache import disk_cache
 
 from funvideo.app.config import config
 from funvideo.app.models import const
@@ -104,7 +104,7 @@ class TaskGenerate:
 
         # 5. Get video materials
         downloaded_videos = self.get_video_materials(
-            params, video_terms, audio_duration
+            params, video_terms, audio_duration, task_id=self.task_id
         )
         if not downloaded_videos:
             self.update_task(state=const.TASK_STATE_FAILED)
@@ -289,7 +289,7 @@ class TaskGenerate:
         return audio_duration, sub_maker
 
     @disk_cache(cache_key="task_id")
-    def get_video_materials(self, params, video_terms, audio_duration):
+    def get_video_materials(self, params, video_terms, audio_duration, *, task_id):
         if params.video_source == "local":
             logger.info(
                 "###################################################################"
