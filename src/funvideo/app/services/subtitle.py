@@ -1,6 +1,7 @@
 import os.path
 import re
 from timeit import default_timer as timer
+from typing import Any
 
 from farlog import getLogger
 from faster_whisper import WhisperModel
@@ -13,9 +14,26 @@ model_size = config.whisper.get("model_size", "large-v3")
 device = config.whisper.get("device", "cpu")
 compute_type = config.whisper.get("compute_type", "int8")
 model = None
+SubtitleItem = tuple[int, str, str]
 
 
-def create(audio_file, subtitle_file: str = ""):
+class SubtitleGenerationError(RuntimeError):
+    """字幕模型加载或转写失败。"""
+
+
+def create(audio_file: str, subtitle_file: str = "") -> str:
+    """将音频转写为 SRT 字幕文件。
+
+    Args:
+        audio_file: 待转写的音频文件路径。
+        subtitle_file: 输出 SRT 文件路径；省略时使用音频文件名加 `.srt`。
+
+    Returns:
+        已生成的 SRT 文件路径。
+
+    Raises:
+        SubtitleGenerationError: 模型加载或转写失败。
+    """
     global model
     if not model:
         model_path = f"{utils.root_dir()}/models/whisper-{model_size}"
@@ -30,37 +48,44 @@ def create(audio_file, subtitle_file: str = ""):
             model = WhisperModel(
                 model_size_or_path=model_path, device=device, compute_type=compute_type
             )
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError) as error:
             logger.error(
-                f"failed to load model: {e} \n\n"
+                f"failed to load model: {error} \n\n"
                 f"********************************************\n"
                 f"this may be caused by network issue. \n"
                 f"please download the model manually and put it in the 'models' folder. \n"
                 f"see [README.md FAQ](https://github.com/harry0703/MoneyPrinterTurbo) for more details.\n"
                 f"********************************************\n\n"
             )
-            return None
+            raise SubtitleGenerationError(
+                f"加载字幕模型失败（音频：{audio_file}）：{error}"
+            ) from error
 
     logger.info(f"start, output file: {subtitle_file}")
     if not subtitle_file:
         subtitle_file = f"{audio_file}.srt"
 
-    segments, info = model.transcribe(
-        audio_file,
-        beam_size=5,
-        word_timestamps=True,
-        vad_filter=True,
-        vad_parameters=dict(min_silence_duration_ms=500),
-    )
+    try:
+        segments, info = model.transcribe(
+            audio_file,
+            beam_size=5,
+            word_timestamps=True,
+            vad_filter=True,
+            vad_parameters=dict(min_silence_duration_ms=500),
+        )
+    except (OSError, RuntimeError, ValueError) as error:
+        raise SubtitleGenerationError(
+            f"生成字幕失败（音频：{audio_file}）：{error}"
+        ) from error
 
     logger.info(
         f"detected language: '{info.language}', probability: {info.language_probability:.2f}"
     )
 
     start = timer()
-    subtitles = []
+    subtitles: list[dict[str, Any]] = []
 
-    def recognized(seg_text, seg_start, seg_end):
+    def recognized(seg_text: str, seg_start: float, seg_end: float) -> None:
         seg_text = seg_text.strip()
         if not seg_text:
             return
@@ -134,9 +159,18 @@ def create(audio_file, subtitle_file: str = ""):
     with open(subtitle_file, "w", encoding="utf-8") as f:
         f.write(sub)
     logger.info(f"subtitle file created: {subtitle_file}")
+    return subtitle_file
 
 
-def file_to_subtitles(filename):
+def file_to_subtitles(filename: str) -> list[SubtitleItem]:
+    """读取 SRT 文件为序号、时间范围和文本组成的列表。
+
+    Args:
+        filename: SRT 文件路径。
+
+    Returns:
+        解析后的字幕条目；文件不存在时返回空列表。
+    """
     if not filename or not os.path.isfile(filename):
         return []
 
@@ -158,7 +192,16 @@ def file_to_subtitles(filename):
     return times_texts
 
 
-def levenshtein_distance(s1, s2):
+def levenshtein_distance(s1: str, s2: str) -> int:
+    """计算两个字符串的 Levenshtein 编辑距离。
+
+    Args:
+        s1: 第一个字符串。
+        s2: 第二个字符串。
+
+    Returns:
+        将一个字符串变为另一个字符串的最少编辑次数。
+    """
     if len(s1) < len(s2):
         return levenshtein_distance(s2, s1)
 
@@ -178,13 +221,31 @@ def levenshtein_distance(s1, s2):
     return previous_row[-1]
 
 
-def similarity(a, b):
+def similarity(a: str, b: str) -> float:
+    """计算两个字符串的归一化相似度。
+
+    Args:
+        a: 第一个字符串。
+        b: 第二个字符串。
+
+    Returns:
+        介于 0 和 1 之间的相似度。
+    """
     distance = levenshtein_distance(a.lower(), b.lower())
     max_length = max(len(a), len(b))
-    return 1 - (distance / max_length)
+    return 1.0 if max_length == 0 else 1 - (distance / max_length)
 
 
-def correct(subtitle_file, video_script):
+def correct(subtitle_file: str, video_script: str) -> bool:
+    """按视频脚本文本校正 SRT 字幕内容。
+
+    Args:
+        subtitle_file: 待校正的 SRT 文件路径。
+        video_script: 作为校正依据的视频脚本。
+
+    Returns:
+        是否对字幕文件作出了修改。
+    """
     subtitle_items = file_to_subtitles(subtitle_file)
     script_lines = utils.split_string_by_punctuations(video_script)
 
@@ -276,3 +337,4 @@ def correct(subtitle_file, video_script):
         logger.info("Subtitle corrected")
     else:
         logger.success("Subtitle is correct")
+    return corrected

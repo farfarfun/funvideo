@@ -10,6 +10,10 @@ logger = getLogger("funai")
 _max_retries = 5
 
 
+class LLMGenerationError(RuntimeError):
+    """大模型在重试后仍无法生成指定内容。"""
+
+
 @lru_cache(maxsize=1)
 def _get_model():
     """按需创建并复用大模型客户端。"""
@@ -27,7 +31,10 @@ def generate_script(
         paragraph_number: 需要保留的段落数。
 
     Returns:
-        清理格式后的脚本文本；多次失败时返回空字符串。
+        清理格式后的脚本文本。
+
+    Raises:
+        LLMGenerationError: 多次调用模型后仍无法生成有效脚本。
     """
     prompt = f"""
 # Role: Video Script Generator
@@ -53,6 +60,7 @@ Generate a script for a video, depending on the subject of the video.
         prompt += f"\n- language: {language}"
 
     final_script = ""
+    last_error: Exception | None = None
     logger.info(f"subject: {video_subject}")
 
     def format_response(response: str) -> str:
@@ -74,10 +82,9 @@ Generate a script for a video, depending on the subject of the video.
     for i in range(_max_retries):
         try:
             response = _get_model().chat(prompt=prompt)
-            if response:
-                final_script = format_response(response)
-            else:
-                logger.error("gpt returned an empty response")
+            if not isinstance(response, str) or not response.strip():
+                raise ValueError("模型返回空脚本")
+            final_script = format_response(response)
 
             # g4f may return an error message
             if final_script and "当日额度已消耗完" in final_script:
@@ -85,12 +92,16 @@ Generate a script for a video, depending on the subject of the video.
 
             if final_script:
                 break
-        except Exception as e:
-            logger.error(f"failed to generate script: {e}")
+        except (OSError, TimeoutError, ValueError) as error:
+            last_error = error
+            logger.error(f"failed to generate script: {error}")
 
         if i < _max_retries:
             logger.warning(f"failed to generate video script, trying again... {i + 1}")
 
+    if not final_script:
+        detail = str(last_error) if last_error else "模型未返回有效脚本"
+        raise LLMGenerationError(f"生成视频脚本失败（主题：{video_subject}）：{detail}")
     logger.success(f"completed: \n{final_script}")
     return final_script.strip()
 
@@ -104,7 +115,10 @@ def generate_terms(video_subject: str, video_script: str, amount: int = 5) -> li
         amount: 期望返回的检索词数量。
 
     Returns:
-        英文素材检索词列表；多次失败时返回空列表。
+        英文素材检索词列表。
+
+    Raises:
+        LLMGenerationError: 多次调用模型后仍无法生成有效检索词。
     """
     prompt = f"""
 # Role: Video Search Terms Generator
@@ -134,8 +148,9 @@ Please note that you must use English for generating video search terms; Chinese
 
     logger.info(f"subject: {video_subject}")
 
-    search_terms = []
+    search_terms: list[str] = []
     response = ""
+    last_error: Exception | None = None
     for i in range(_max_retries):
         try:
             response = _get_model().chat(prompt)
@@ -146,20 +161,25 @@ Please note that you must use English for generating video search terms; Chinese
                 logger.error("response is not a list of strings.")
                 continue
 
-        except Exception as e:
-            logger.warning(f"failed to generate video terms: {str(e)}")
+        except (OSError, TimeoutError, ValueError, json.JSONDecodeError) as error:
+            last_error = error
+            logger.warning(f"failed to generate video terms: {error}")
             if response:
                 match = re.search(r"\[.*]", response)
                 if match:
                     try:
                         search_terms = json.loads(match.group())
-                    except (json.JSONDecodeError, TypeError) as e:
-                        logger.warning(f"failed to generate video terms: {str(e)}")
+                    except (json.JSONDecodeError, TypeError) as parse_error:
+                        last_error = parse_error
+                        logger.warning(f"failed to generate video terms: {parse_error}")
 
         if search_terms and len(search_terms) > 0:
             break
         if i < _max_retries:
             logger.warning(f"failed to generate video terms, trying again... {i + 1}")
 
+    if not search_terms:
+        detail = str(last_error) if last_error else "模型未返回有效检索词"
+        raise LLMGenerationError(f"生成素材检索词失败（主题：{video_subject}）：{detail}")
     logger.success(f"completed: \n{search_terms}")
     return search_terms

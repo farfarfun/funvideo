@@ -1,6 +1,7 @@
 import math
 import os
 import random
+from typing import Any
 
 import moviepy.audio.fx as afx
 import moviepy.video.fx as vfx
@@ -33,7 +34,16 @@ from funvideo.app.utils import utils
 logger = getLogger("funvideo")
 
 
-def get_bgm_file(bgm_type: str = "random", bgm_file: str = ""):
+def get_bgm_file(bgm_type: str = "random", bgm_file: str = "") -> str:
+    """按类型或指定路径获取背景音乐文件。
+
+    Args:
+        bgm_type: 背景音乐类型，`random` 会随机获取音乐。
+        bgm_file: 指定的本地背景音乐文件路径。
+
+    Returns:
+        可用的背景音乐路径；未找到时返回空字符串。
+    """
     if not bgm_type:
         return ""
 
@@ -55,8 +65,24 @@ def combine_videos(
     max_clip_duration: int = 5,
     min_clip_duration: int = 3,
     threads: int = 2,
-    overwrite=False,
+    overwrite: bool = False,
 ) -> str:
+    """将素材视频拼接为与音频时长匹配的视频。
+
+    Args:
+        combined_video_path: 拼接后视频的输出路径。
+        video_paths: 输入视频文件路径列表。
+        audio_file: 用于确定时长的音频文件路径。
+        video_aspect: 输出视频比例。
+        video_concat_mode: 素材片段拼接模式。
+        max_clip_duration: 单个素材片段的最长时长（秒）。
+        min_clip_duration: 单个素材片段的最短时长（秒）。
+        threads: 视频编码线程数。
+        overwrite: 输出存在时是否覆盖。
+
+    Returns:
+        拼接后视频文件路径。
+    """
     if os.path.exists(combined_video_path) and not overwrite:
         logger.info(f"file {combined_video_path} already exists, skipping")
         return combined_video_path
@@ -171,7 +197,20 @@ def combine_videos(
     return combined_video_path
 
 
-def wrap_text(text, max_width, font, fontsize=60):
+def wrap_text(
+    text: str, max_width: float, font: str, fontsize: int = 60
+) -> tuple[str, int]:
+    """根据字体宽度将文本换行。
+
+    Args:
+        text: 待换行的文本。
+        max_width: 每行允许的最大像素宽度。
+        font: 字体文件路径。
+        fontsize: 字体大小。
+
+    Returns:
+        换行后的文本与其估算高度。
+    """
     # 创建字体对象
     font = ImageFont.truetype(font, fontsize)
 
@@ -235,7 +274,19 @@ def generate_video(
     subtitle_path: str,
     output_file: str,
     params: VideoParams,
-):
+) -> None:
+    """为拼接视频叠加音频和字幕并输出成片。
+
+    Args:
+        video_path: 输入视频路径。
+        audio_path: 配音文件路径。
+        subtitle_path: SRT 字幕文件路径。
+        output_file: 成片输出路径。
+        params: 视频渲染参数。
+
+    Returns:
+        无返回值；成片写入 `output_file`。
+    """
     aspect = VideoAspect(params.video_aspect)
     video_width, video_height = aspect.to_resolution()
 
@@ -275,8 +326,17 @@ def generate_video(
     logger.success("completed")
 
 
-def process_audio_tracks(video_clip, audio_path, params):
-    """处理所有音轨"""
+def process_audio_tracks(video_clip: Any, audio_path: str, params: VideoParams) -> Any:
+    """为视频添加配音和可选背景音乐。
+
+    Args:
+        video_clip: MoviePy 视频剪辑对象。
+        audio_path: 配音文件路径。
+        params: 音频相关视频参数。
+
+    Returns:
+        已附加音轨的视频剪辑对象。
+    """
     audio_clip = AudioFileClip(audio_path).with_effects(
         [afx.MultiplyVolume(params.voice_volume)]
     )
@@ -299,9 +359,26 @@ def process_audio_tracks(video_clip, audio_path, params):
 
 
 def process_subtitles(
-    subtitle_path, video_clip, video_duration, params, video_width, video_height
-):
-    """处理字幕"""
+    subtitle_path: str,
+    video_clip: Any,
+    video_duration: float,
+    params: VideoParams,
+    video_width: int,
+    video_height: int,
+) -> Any:
+    """将 SRT 字幕渲染并叠加到视频剪辑。
+
+    Args:
+        subtitle_path: SRT 字幕文件路径。
+        video_clip: 待叠加字幕的 MoviePy 视频剪辑对象。
+        video_duration: 视频总时长（秒）。
+        params: 字幕样式参数。
+        video_width: 视频宽度（像素）。
+        video_height: 视频高度（像素）。
+
+    Returns:
+        带字幕的视频剪辑对象；没有字幕文件时返回原视频。
+    """
 
     if not (subtitle_path and os.path.exists(subtitle_path)):
         return video_clip
@@ -310,7 +387,7 @@ def process_subtitles(
     font_path = random_font_from_zenodo()
     logger.info(f"使用字体: {font_path}")
 
-    def create_text_clip(subtitle_item):
+    def create_text_clip(subtitle_item: Any) -> Any:
         phrase = subtitle_item[1]
         max_width = video_width * 0.9
         wrapped_txt, txt_height = wrap_text(
@@ -370,7 +447,18 @@ def process_subtitles(
     return CompositeVideoClip([video_clip, *text_clips])
 
 
-def preprocess_video(materials: list[MaterialInfo], clip_duration=4):
+def preprocess_video(
+    materials: list[MaterialInfo], clip_duration: int = 4
+) -> list[MaterialInfo]:
+    """校验本地素材并为图片生成可用的视频片段。
+
+    Args:
+        materials: 待处理的本地素材信息列表。
+        clip_duration: 图片素材转视频后的时长（秒）。
+
+    Returns:
+        已处理的素材信息列表。
+    """
     for material in materials:
         if not material.url:
             continue

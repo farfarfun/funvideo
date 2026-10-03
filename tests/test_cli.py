@@ -32,14 +32,31 @@ def test_server_options_prefer_cli_over_config(tmp_path: Path) -> None:
     )
 
 
-def test_server_commands_require_environment() -> None:
-    for command in ("start", "run", "stop", "restart", "status"):
+def test_server_commands_require_environment_except_status() -> None:
+    for command in ("start", "run", "stop", "restart"):
         result = runner.invoke(cli.app, ["server", command])
         assert result.exit_code != 0
 
+    result = runner.invoke(cli.app, ["server", "status"])
+    assert result.exit_code == 0
+    assert "[dev]" in result.output
+    assert "[prod]" in result.output
 
-def test_runtime_files_are_kept_in_run_directory(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.chdir(tmp_path)
+
+def test_runtime_files_are_kept_in_stable_state_directory(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.delenv("FUNVIDEO_RUNTIME_DIR", raising=False)
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
     pid_file, log_file = cli._state_paths(cli.Environment.prod)
-    assert pid_file == tmp_path / ".run" / "funvideo-prod.pid"
-    assert log_file == tmp_path / ".run" / "funvideo-prod.log"
+    runtime_dir = tmp_path / "state" / "farfarfun" / "funvideo" / ".run"
+    assert pid_file == runtime_dir / "funvideo-prod.pid"
+    assert log_file == runtime_dir / "funvideo-prod.log"
+
+
+def test_runtime_directory_can_be_set_by_service_script(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setenv("FUNVIDEO_RUNTIME_DIR", str(tmp_path / "service-state"))
+    pid_file, _ = cli._state_paths(cli.Environment.dev)
+    assert pid_file == tmp_path / "service-state" / "funvideo-dev.pid"

@@ -1,5 +1,5 @@
 import warnings
-from enum import StrEnum
+from enum import Enum
 from typing import Any
 
 import pydantic
@@ -13,12 +13,12 @@ warnings.filterwarnings(
 )
 
 
-class VideoConcatMode(StrEnum):
+class VideoConcatMode(str, Enum):
     random = "random"
     sequential = "sequential"
 
 
-class VideoAspect(StrEnum):
+class VideoAspect(str, Enum):
     landscape = "16:9"
     portrait = "9:16"
     square = "1:1"

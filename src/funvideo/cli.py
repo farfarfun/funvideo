@@ -2,12 +2,15 @@
 
 import json
 import os
-import shutil
 import subprocess
 import sys
 import time
-from enum import StrEnum
-from importlib.metadata import version as package_version
+from enum import Enum
+from importlib.metadata import (
+    PackageNotFoundError,
+    distribution,
+    version as package_version,
+)
 from pathlib import Path
 from typing import Annotated, Any, NoReturn
 
@@ -20,7 +23,7 @@ DEFAULT_PORT = 8080
 STOP_TIMEOUT_SECONDS = 10
 
 
-class Environment(StrEnum):
+class Environment(str, Enum):
     """服务运行环境。"""
 
     dev = "dev"
@@ -59,7 +62,11 @@ def _default_config_path() -> Path:
 
 
 def _runtime_dir() -> Path:
-    return Path.cwd() / ".run"
+    configured_path = os.environ.get("FUNVIDEO_RUNTIME_DIR")
+    if configured_path:
+        return Path(configured_path).expanduser().resolve()
+    root = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local" / "state"))
+    return root / "farfarfun" / PACKAGE_NAME / ".run"
 
 
 def _active_config_file(environment: Environment) -> Path:
@@ -104,6 +111,25 @@ def _pid_is_live(pid: int) -> bool:
     except OSError:
         return False
     return True
+
+
+def _pid_is_managed_server(pid: int) -> bool:
+    """检查 PID 是否是本 CLI 启动的 funvideo 服务进程。"""
+    try:
+        command = Path(f"/proc/{pid}/cmdline").read_bytes().decode().replace("\0", " ")
+    except OSError:
+        return False
+    return PACKAGE_NAME in command and "server run" in command
+
+
+def _require_official_installation() -> None:
+    """拒绝以本地路径或可编辑安装的包启动生产服务。"""
+    try:
+        package = distribution(PACKAGE_NAME)
+    except PackageNotFoundError:
+        _fail("生产服务必须使用从正式发布源安装的 funvideo 包")
+    if package.read_text("direct_url.json") is not None:
+        _fail("生产服务不能使用本地路径或可编辑安装的 funvideo 包")
 
 
 def _load_env(path: Path) -> dict[str, str]:
@@ -173,10 +199,6 @@ def _clear_state(config: Path, environment: Environment) -> None:
         pointer.unlink(missing_ok=True)
 
 
-def _resolve_cli_executable() -> str:
-    return shutil.which(PACKAGE_NAME) or sys.argv[0]
-
-
 def _server_command_options(
     environment: Environment, config: Path, host: str | None, port: int | None
 ) -> list[str]:
@@ -224,6 +246,8 @@ def server_run(
     ] = None,
 ) -> None:
     """在前台运行 API 服务。"""
+    if environment is Environment.prod:
+        _require_official_installation()
     resolved_config = _resolve_config_path(config, environment=environment)
     resolved_host, resolved_port = _resolve_server_options(resolved_config, host, port)
     existing = _read_pid(environment)
@@ -267,7 +291,9 @@ def server_start(
     _, log_file = _state_paths(environment)
     log_file.parent.mkdir(parents=True, exist_ok=True)
     command = [
-        _resolve_cli_executable(),
+        sys.executable,
+        "-m",
+        "funvideo.cli",
         "server",
         "run",
         *_server_command_options(environment, resolved_config, host, port),
@@ -304,14 +330,9 @@ def server_stop(
         _warn("funvideo 未在运行")
         return
 
-    _, resolved_port = _resolve_server_options(resolved_config, None, port)
-    from funshell import kill_process
-
-    outcomes = kill_process(port=resolved_port, sig="TERM")
-    if not outcomes:
-        _fail(
-            f"未找到监听端口 {resolved_port} 的 funvideo 进程（PID 文件：{pid_file}）"
-        )
+    if not _pid_is_managed_server(pid):
+        _fail(f"PID 文件不属于 funvideo 服务，拒绝停止（PID 文件：{pid_file}）")
+    os.kill(pid, 15)
 
     deadline = time.monotonic() + STOP_TIMEOUT_SECONDS
     while _pid_is_live(pid):
@@ -338,29 +359,33 @@ def server_restart(
 
 @server_app.command("status")
 def server_status(
-    environment: Annotated[Environment, typer.Argument(help="运行环境：dev 或 prod")],
+    environment: Annotated[
+        Environment | None, typer.Argument(help="运行环境：dev 或 prod；省略时显示全部")
+    ] = None,
     port: Annotated[int | None, typer.Option(help="监听端口")] = None,
     config: Annotated[Path | None, typer.Option(help="启动时使用的配置文件")] = None,
 ) -> None:
     """显示 API 服务状态和已安装版本。"""
-    resolved_config = _resolve_config_path(
-        config, environment=environment, use_active=True
-    )
-    pid = _read_pid(environment)
-    _, resolved_port = _resolve_server_options(resolved_config, None, port)
-    if pid is not None and _pid_is_live(pid):
-        _ok(f"运行中（funvideo@{_version()}，pid {pid}，端口 {resolved_port}）")
-    elif pid is not None:
-        _warn(f"PID 文件已失效（pid {pid}，funvideo@{_version()}）")
-    else:
-        _warn(f"未在运行（funvideo@{_version()}）")
+    for current_environment in (environment,) if environment else tuple(Environment):
+        resolved_config = _resolve_config_path(
+            config, environment=current_environment, use_active=True
+        )
+        pid = _read_pid(current_environment)
+        _, resolved_port = _resolve_server_options(resolved_config, None, port)
+        prefix = f"[{current_environment.value}] "
+        if pid is not None and _pid_is_live(pid):
+            _ok(f"{prefix}运行中（funvideo@{_version()}，pid {pid}，端口 {resolved_port}）")
+        elif pid is not None:
+            _warn(f"{prefix}PID 文件已失效（pid {pid}，funvideo@{_version()}）")
+        else:
+            _warn(f"{prefix}未在运行（funvideo@{_version()}）")
 
 
-def _run_pip(arguments: list[str]) -> None:
-    command = [sys.executable, "-m", "pip", *arguments]
+def _run_uv_tool(arguments: list[str]) -> None:
+    command = ["uv", "tool", *arguments]
     result = subprocess.run(command, check=False)
     if result.returncode != 0:
-        _fail(f"pip 执行失败（退出码 {result.returncode}）")
+        _fail(f"uv tool 执行失败（退出码 {result.returncode}）")
 
 
 @app.command("upgrade")
@@ -371,22 +396,21 @@ def upgrade(
 ) -> None:
     """升级到最新版或指定版本。"""
     target = f"{PACKAGE_NAME}=={version}" if version else PACKAGE_NAME
-    _run_pip(["install", "--upgrade", target])
+    _run_uv_tool(["install", "--upgrade", target])
 
 
 @app.command("rollback")
 def rollback(version: Annotated[str, typer.Argument(help="要回退到的版本")]) -> None:
     """强制安装指定旧版本。"""
-    _run_pip(
-        ["install", "--upgrade", "--force-reinstall", f"{PACKAGE_NAME}=={version}"]
-    )
+    _run_uv_tool(["install", "--force", f"{PACKAGE_NAME}=={version}"])
 
 
 @app.command("uninstall")
 def uninstall() -> None:
     """停止服务后卸载 funvideo。"""
-    server_stop()
-    _run_pip(["uninstall", "-y", PACKAGE_NAME])
+    server_stop(environment=Environment.dev)
+    server_stop(environment=Environment.prod)
+    _run_uv_tool(["uninstall", PACKAGE_NAME])
 
 
 if __name__ == "__main__":
