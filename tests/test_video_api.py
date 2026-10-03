@@ -36,6 +36,16 @@ def test_generate_script_respects_paragraph_limit(mock_llm_model):
     assert llm.generate_script("测试", paragraph_number=1) == "第一段。"
 
 
+def test_llm_api_reports_generation_failure(client, mock_llm_model, monkeypatch):
+    """模型重试耗尽时接口返回明确的非成功状态。"""
+    monkeypatch.setattr(mock_llm_model.chat, "return_value", "")
+
+    response = client.post("/api/v1/scripts", json={"video_subject": "测试"})
+
+    assert response.status_code == 502
+    assert "生成视频脚本失败" in response.json()["message"]
+
+
 def test_upload_bgm_normalizes_filename_and_rejects_wrong_extension(client):
     """上传接口保存 MP3 基名，并拒绝伪装扩展名。"""
     from funvideo.app.utils import utils

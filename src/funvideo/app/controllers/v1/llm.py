@@ -3,6 +3,7 @@ from typing import Any
 from fastapi import Request
 
 from funvideo.app.controllers.v1.base import new_router
+from funvideo.app.models.exception import HttpException
 from funvideo.app.models.schema import (
     VideoScriptRequest,
     VideoScriptResponse,
@@ -32,11 +33,14 @@ def generate_video_script(request: Request, body: VideoScriptRequest) -> dict[st
     Returns:
         包含生成脚本的标准响应字典。
     """
-    video_script = llm.generate_script(
-        video_subject=body.video_subject,
-        language=body.video_language,
-        paragraph_number=body.paragraph_number,
-    )
+    try:
+        video_script = llm.generate_script(
+            video_subject=body.video_subject,
+            language=body.video_language,
+            paragraph_number=body.paragraph_number,
+        )
+    except llm.LLMGenerationError as error:
+        raise HttpException("", 502, str(error)) from error
     response = {"video_script": video_script}
     return utils.get_response(200, response)
 
@@ -56,10 +60,13 @@ def generate_video_terms(request: Request, body: VideoTermsRequest) -> dict[str,
     Returns:
         包含素材检索词的标准响应字典。
     """
-    video_terms = llm.generate_terms(
-        video_subject=body.video_subject,
-        video_script=body.video_script,
-        amount=body.amount,
-    )
+    try:
+        video_terms = llm.generate_terms(
+            video_subject=body.video_subject,
+            video_script=body.video_script,
+            amount=body.amount,
+        )
+    except llm.LLMGenerationError as error:
+        raise HttpException("", 502, str(error)) from error
     response = {"video_terms": video_terms}
     return utils.get_response(200, response)

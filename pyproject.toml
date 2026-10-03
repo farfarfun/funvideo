@@ -7,7 +7,7 @@ name = "funvideo"
 version = "1.0.25"
 description = "基于 LLM、素材检索、语音与字幕合成的短视频生成服务"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 license = "MIT"
 license-files = ["LICENSE", "NOTICE"]
 dependencies = [ "edge-tts~=6.1.10", "farcache>=2.0.3", "faster-whisper>=1.1.0", "funai>=1.0.1", "funtalk>=1.0.11", "moviepy>=2.0.0", "openai>=1.54.5", "fastapi>=0.110.0", "uvicorn>=0.30.0", "toml>=0.10.2", "funmaterial>=1.0.0", "redis>=5.0.0", "python-multipart>=0.0.9", "cryptography>=50.0.1", "farlog>=1.1.8", "funsecret>=1.4.96", "funshell>=1.0.23", "typer>=0.12",]
@@ -33,7 +33,7 @@ packages = ["src/funvideo"]
 dev = ["pytest>=8.0.0", "httpx>=0.27.0", "ruff>=0.9.0"]
 
 [tool.ruff]
-target-version = "py312"
+target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I", "UP"]
