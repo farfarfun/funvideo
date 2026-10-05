@@ -180,6 +180,8 @@ Please note that you must use English for generating video search terms; Chinese
 
     if not search_terms:
         detail = str(last_error) if last_error else "模型未返回有效检索词"
-        raise LLMGenerationError(f"生成素材检索词失败（主题：{video_subject}）：{detail}")
+        raise LLMGenerationError(
+            f"生成素材检索词失败（主题：{video_subject}）：{detail}"
+        )
     logger.success(f"completed: \n{search_terms}")
     return search_terms

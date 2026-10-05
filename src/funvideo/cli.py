@@ -9,6 +9,8 @@ from enum import Enum
 from importlib.metadata import (
     PackageNotFoundError,
     distribution,
+)
+from importlib.metadata import (
     version as package_version,
 )
 from pathlib import Path
@@ -374,7 +376,9 @@ def server_status(
         _, resolved_port = _resolve_server_options(resolved_config, None, port)
         prefix = f"[{current_environment.value}] "
         if pid is not None and _pid_is_live(pid):
-            _ok(f"{prefix}运行中（funvideo@{_version()}，pid {pid}，端口 {resolved_port}）")
+            _ok(
+                f"{prefix}运行中（funvideo@{_version()}，pid {pid}，端口 {resolved_port}）"
+            )
         elif pid is not None:
             _warn(f"{prefix}PID 文件已失效（pid {pid}，funvideo@{_version()}）")
         else:
