@@ -4,10 +4,9 @@
 
 ### 修复
 
+- 服务生命周期改为单实例：`server` 与 `scripts/setup.sh` 的 `start`、`stop`、`restart`、`run`、`status` 不再接受运行时 `dev`/`prod` 参数；安装来源仅由 `install-dev`、`install-prod` 和 `publish` 决定。
 - `requires-python` 与 Ruff target 降为组织统一下限 `>=3.10`。
-- `scripts/setup.sh` 基于脚本自身位置解析 `ROOT_DIR`，不再依赖调用者的工作目录；
-  `status` 命令支持省略环境参数、默认汇报 `dev`/`prod` 全部状态。
-- `server run prod` / `start prod` 增加正式发行包安装校验，拒绝源码或可编辑安装启动生产服务。
+- `scripts/setup.sh` 不再维护本地运行时目录，直接委托已安装的 `funvideo` CLI 管理状态。
 - `server stop` 改为校验 PID 文件对应进程身份后直接按 PID 发信号，不再用端口探测代替进程归属校验。
 - `llm.py` 生成脚本/检索词失败时不再静默返回空字符串或空列表，改为抛出 `LLMGenerationError`
   并由控制器转换为明确的 502 响应；收窄为可恢复的网络/解析异常。

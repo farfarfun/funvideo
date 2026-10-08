@@ -34,17 +34,20 @@ def test_server_options_prefer_cli_over_config(tmp_path: Path) -> None:
     )
 
 
-def test_server_commands_require_environment_except_status() -> None:
+def test_server_commands_are_single_instance_without_environment() -> None:
     from funvideo import cli
 
     for command in ("start", "run", "stop", "restart"):
-        result = runner.invoke(cli.app, ["server", command])
-        assert result.exit_code != 0
+        result = runner.invoke(cli.app, ["server", command, "--help"])
+        assert result.exit_code == 0
 
     result = runner.invoke(cli.app, ["server", "status"])
     assert result.exit_code == 0
-    assert "[dev]" in result.output
-    assert "[prod]" in result.output
+    assert "[dev]" not in result.output
+    assert "[prod]" not in result.output
+
+    result = runner.invoke(cli.app, ["server", "status", "dev"])
+    assert result.exit_code != 0
 
 
 def test_runtime_files_are_kept_in_stable_state_directory(
@@ -54,10 +57,10 @@ def test_runtime_files_are_kept_in_stable_state_directory(
 
     monkeypatch.delenv("FUNVIDEO_RUNTIME_DIR", raising=False)
     monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
-    pid_file, log_file = cli._state_paths(cli.Environment.prod)
+    pid_file, log_file = cli._state_paths()
     runtime_dir = tmp_path / "state" / "farfarfun" / "funvideo" / ".run"
-    assert pid_file == runtime_dir / "funvideo-prod.pid"
-    assert log_file == runtime_dir / "funvideo-prod.log"
+    assert pid_file == runtime_dir / "funvideo.pid"
+    assert log_file == runtime_dir / "funvideo.log"
 
 
 def test_runtime_directory_can_be_set_by_service_script(
@@ -66,5 +69,5 @@ def test_runtime_directory_can_be_set_by_service_script(
     from funvideo import cli
 
     monkeypatch.setenv("FUNVIDEO_RUNTIME_DIR", str(tmp_path / "service-state"))
-    pid_file, _ = cli._state_paths(cli.Environment.dev)
-    assert pid_file == tmp_path / "service-state" / "funvideo-dev.pid"
+    pid_file, _ = cli._state_paths()
+    assert pid_file == tmp_path / "service-state" / "funvideo.pid"

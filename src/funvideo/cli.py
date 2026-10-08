@@ -5,11 +5,6 @@ import os
 import subprocess
 import sys
 import time
-from enum import Enum
-from importlib.metadata import (
-    PackageNotFoundError,
-    distribution,
-)
 from importlib.metadata import (
     version as package_version,
 )
@@ -23,13 +18,6 @@ PACKAGE_NAME = "funvideo"
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8080
 STOP_TIMEOUT_SECONDS = 10
-
-
-class Environment(str, Enum):
-    """服务运行环境。"""
-
-    dev = "dev"
-    prod = "prod"
 
 
 app = typer.Typer(help="funvideo 短视频生成服务")
@@ -71,12 +59,12 @@ def _runtime_dir() -> Path:
     return root / "farfarfun" / PACKAGE_NAME / ".run"
 
 
-def _active_config_file(environment: Environment) -> Path:
-    return _runtime_dir() / f"{PACKAGE_NAME}-{environment.value}.config"
+def _active_config_file() -> Path:
+    return _runtime_dir() / f"{PACKAGE_NAME}.config"
 
 
-def _read_active_config(environment: Environment) -> Path | None:
-    pointer = _active_config_file(environment)
+def _read_active_config() -> Path | None:
+    pointer = _active_config_file()
     if not pointer.is_file():
         return None
     value = pointer.read_text(encoding="utf-8").strip()
@@ -86,20 +74,19 @@ def _read_active_config(environment: Environment) -> Path | None:
 def _resolve_config_path(
     config: Path | None,
     *,
-    environment: Environment,
     use_active: bool = False,
 ) -> Path:
-    path = config or (_read_active_config(environment) if use_active else None)
+    path = config or (_read_active_config() if use_active else None)
     return (path or _default_config_path()).expanduser().resolve()
 
 
-def _state_paths(environment: Environment) -> tuple[Path, Path]:
-    prefix = _runtime_dir() / f"{PACKAGE_NAME}-{environment.value}"
+def _state_paths() -> tuple[Path, Path]:
+    prefix = _runtime_dir() / PACKAGE_NAME
     return prefix.with_suffix(".pid"), prefix.with_suffix(".log")
 
 
-def _read_pid(environment: Environment) -> int | None:
-    pid_file, _ = _state_paths(environment)
+def _read_pid() -> int | None:
+    pid_file, _ = _state_paths()
     try:
         pid = int(pid_file.read_text(encoding="utf-8").strip())
     except (FileNotFoundError, ValueError):
@@ -122,16 +109,6 @@ def _pid_is_managed_server(pid: int) -> bool:
     except OSError:
         return False
     return PACKAGE_NAME in command and "server run" in command
-
-
-def _require_official_installation() -> None:
-    """拒绝以本地路径或可编辑安装的包启动生产服务。"""
-    try:
-        package = distribution(PACKAGE_NAME)
-    except PackageNotFoundError:
-        _fail("生产服务必须使用从正式发布源安装的 funvideo 包")
-    if package.read_text("direct_url.json") is not None:
-        _fail("生产服务不能使用本地路径或可编辑安装的 funvideo 包")
 
 
 def _load_env(path: Path) -> dict[str, str]:
@@ -184,27 +161,27 @@ def _resolve_server_options(
     return resolved_host, resolved_port
 
 
-def _write_state(config: Path, environment: Environment, pid: int) -> None:
-    pid_file, _ = _state_paths(environment)
+def _write_state(config: Path, pid: int) -> None:
+    pid_file, _ = _state_paths()
     pid_file.parent.mkdir(parents=True, exist_ok=True)
     pid_file.write_text(f"{pid}\n", encoding="utf-8")
-    pointer = _active_config_file(environment)
+    pointer = _active_config_file()
     pointer.parent.mkdir(parents=True, exist_ok=True)
     pointer.write_text(f"{config}\n", encoding="utf-8")
 
 
-def _clear_state(config: Path, environment: Environment) -> None:
-    pid_file, _ = _state_paths(environment)
+def _clear_state(config: Path) -> None:
+    pid_file, _ = _state_paths()
     pid_file.unlink(missing_ok=True)
-    pointer = _active_config_file(environment)
-    if _read_active_config(environment) == config:
+    pointer = _active_config_file()
+    if _read_active_config() == config:
         pointer.unlink(missing_ok=True)
 
 
 def _server_command_options(
-    environment: Environment, config: Path, host: str | None, port: int | None
+    config: Path, host: str | None, port: int | None
 ) -> list[str]:
-    options = [environment.value, "--config", str(config)]
+    options = ["--config", str(config)]
     if host is not None:
         options += ["--host", host]
     if port is not None:
@@ -240,7 +217,6 @@ def webui() -> None:
 
 @server_app.command("run")
 def server_run(
-    environment: Annotated[Environment, typer.Argument(help="运行环境：dev 或 prod")],
     host: Annotated[str | None, typer.Option(help="监听地址")] = None,
     port: Annotated[int | None, typer.Option(help="监听端口")] = None,
     config: Annotated[
@@ -248,17 +224,14 @@ def server_run(
     ] = None,
 ) -> None:
     """在前台运行 API 服务。"""
-    if environment is Environment.prod:
-        _require_official_installation()
-    resolved_config = _resolve_config_path(config, environment=environment)
+    resolved_config = _resolve_config_path(config)
     resolved_host, resolved_port = _resolve_server_options(resolved_config, host, port)
-    existing = _read_pid(environment)
+    existing = _read_pid()
     if existing is not None and existing != os.getpid() and _pid_is_live(existing):
         _fail(f"funvideo 已在运行（pid {existing}）")
 
     os.environ["FUNVIDEO_CONFIG_FILE"] = str(resolved_config)
-    os.environ["FUNVIDEO_ENV"] = environment.value
-    _write_state(resolved_config, environment, os.getpid())
+    _write_state(resolved_config, os.getpid())
     try:
         import uvicorn
 
@@ -269,12 +242,11 @@ def server_run(
             log_level="warning",
         )
     finally:
-        _clear_state(resolved_config, environment)
+        _clear_state(resolved_config)
 
 
 @server_app.command("start")
 def server_start(
-    environment: Annotated[Environment, typer.Argument(help="运行环境：dev 或 prod")],
     host: Annotated[str | None, typer.Option(help="监听地址")] = None,
     port: Annotated[int | None, typer.Option(help="监听端口")] = None,
     config: Annotated[
@@ -282,15 +254,15 @@ def server_start(
     ] = None,
 ) -> None:
     """在后台启动 API 服务。"""
-    active_config = _read_active_config(environment)
+    active_config = _read_active_config()
     if active_config is not None:
-        active_pid = _read_pid(environment)
+        active_pid = _read_pid()
         if active_pid is not None and _pid_is_live(active_pid):
             _fail(f"funvideo 已在运行（pid {active_pid}）")
 
-    resolved_config = _resolve_config_path(config, environment=environment)
+    resolved_config = _resolve_config_path(config)
     _, resolved_port = _resolve_server_options(resolved_config, host, port)
-    _, log_file = _state_paths(environment)
+    _, log_file = _state_paths()
     log_file.parent.mkdir(parents=True, exist_ok=True)
     command = [
         sys.executable,
@@ -298,7 +270,7 @@ def server_start(
         "funvideo.cli",
         "server",
         "run",
-        *_server_command_options(environment, resolved_config, host, port),
+        *_server_command_options(resolved_config, host, port),
     ]
     with log_file.open("ab") as log:
         process = subprocess.Popen(
@@ -310,25 +282,21 @@ def server_start(
         )
     time.sleep(1)
     if process.poll() is not None:
-        _clear_state(resolved_config, environment)
+        _clear_state(resolved_config)
         _fail(f"funvideo 启动失败，请查看日志：{log_file}")
     _ok(f"funvideo 已启动（pid {process.pid}，端口 {resolved_port}，日志 {log_file}）")
 
 
 @server_app.command("stop")
 def server_stop(
-    environment: Annotated[Environment, typer.Argument(help="运行环境：dev 或 prod")],
-    port: Annotated[int | None, typer.Option(help="监听端口")] = None,
     config: Annotated[Path | None, typer.Option(help="启动时使用的配置文件")] = None,
 ) -> None:
     """停止后台 API 服务。"""
-    resolved_config = _resolve_config_path(
-        config, environment=environment, use_active=True
-    )
-    pid_file, _ = _state_paths(environment)
-    pid = _read_pid(environment)
+    resolved_config = _resolve_config_path(config, use_active=True)
+    pid_file, _ = _state_paths()
+    pid = _read_pid()
     if pid is None or not _pid_is_live(pid):
-        _clear_state(resolved_config, environment)
+        _clear_state(resolved_config)
         _warn("funvideo 未在运行")
         return
 
@@ -341,13 +309,12 @@ def server_stop(
         if time.monotonic() >= deadline:
             _fail(f"funvideo 在 {STOP_TIMEOUT_SECONDS}s 内未退出（pid {pid}）")
         time.sleep(0.2)
-    _clear_state(resolved_config, environment)
+    _clear_state(resolved_config)
     _ok("funvideo 已停止")
 
 
 @server_app.command("restart")
 def server_restart(
-    environment: Annotated[Environment, typer.Argument(help="运行环境：dev 或 prod")],
     host: Annotated[str | None, typer.Option(help="监听地址")] = None,
     port: Annotated[int | None, typer.Option(help="监听端口")] = None,
     config: Annotated[
@@ -355,34 +322,25 @@ def server_restart(
     ] = None,
 ) -> None:
     """停止后重新启动 API 服务。"""
-    server_stop(environment=environment, port=port, config=config)
-    server_start(environment=environment, host=host, port=port, config=config)
+    server_stop(config=config)
+    server_start(host=host, port=port, config=config)
 
 
 @server_app.command("status")
 def server_status(
-    environment: Annotated[
-        Environment | None, typer.Argument(help="运行环境：dev 或 prod；省略时显示全部")
-    ] = None,
     port: Annotated[int | None, typer.Option(help="监听端口")] = None,
     config: Annotated[Path | None, typer.Option(help="启动时使用的配置文件")] = None,
 ) -> None:
     """显示 API 服务状态和已安装版本。"""
-    for current_environment in (environment,) if environment else tuple(Environment):
-        resolved_config = _resolve_config_path(
-            config, environment=current_environment, use_active=True
-        )
-        pid = _read_pid(current_environment)
-        _, resolved_port = _resolve_server_options(resolved_config, None, port)
-        prefix = f"[{current_environment.value}] "
-        if pid is not None and _pid_is_live(pid):
-            _ok(
-                f"{prefix}运行中（funvideo@{_version()}，pid {pid}，端口 {resolved_port}）"
-            )
-        elif pid is not None:
-            _warn(f"{prefix}PID 文件已失效（pid {pid}，funvideo@{_version()}）")
-        else:
-            _warn(f"{prefix}未在运行（funvideo@{_version()}）")
+    resolved_config = _resolve_config_path(config, use_active=True)
+    pid = _read_pid()
+    _, resolved_port = _resolve_server_options(resolved_config, None, port)
+    if pid is not None and _pid_is_live(pid):
+        _ok(f"运行中（funvideo@{_version()}，pid {pid}，端口 {resolved_port}）")
+    elif pid is not None:
+        _warn(f"PID 文件已失效（pid {pid}，funvideo@{_version()}）")
+    else:
+        _warn(f"未在运行（funvideo@{_version()}）")
 
 
 def _run_uv_tool(arguments: list[str]) -> None:
@@ -412,8 +370,7 @@ def rollback(version: Annotated[str, typer.Argument(help="要回退到的版本"
 @app.command("uninstall")
 def uninstall() -> None:
     """停止服务后卸载 funvideo。"""
-    server_stop(environment=Environment.dev)
-    server_stop(environment=Environment.prod)
+    server_stop()
     _run_uv_tool(["uninstall", PACKAGE_NAME])
 
 
