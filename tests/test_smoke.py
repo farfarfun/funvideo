@@ -30,6 +30,27 @@ def test_app_object_builds_with_routes(fastapi_app):
     assert "/docs" in route_paths
 
 
+def test_cors_is_disabled_by_default_and_never_uses_wildcard_credentials():
+    """跨域来源必须显式配置，且通配来源不能携带凭据。"""
+    from funvideo.app.asgi import _cors_settings
+
+    assert _cors_settings(None) == ([], False)
+    assert _cors_settings("https://ui.example, https://admin.example") == (
+        ["https://ui.example", "https://admin.example"],
+        True,
+    )
+    assert _cors_settings("*") == (["*"], False)
+
+
+def test_application_data_root_does_not_depend_on_current_directory(tmp_path, monkeypatch):
+    """运行数据目录来自 XDG 配置，而不是调用进程的 cwd。"""
+    from funvideo.app.utils import utils
+
+    monkeypatch.delenv("FUNVIDEO_DATA_DIR", raising=False)
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    assert utils.root_dir() == str(tmp_path / "data" / "farfarfun" / "funvideo")
+
+
 def test_openapi_schema_endpoint(client):
     """GET /openapi.json 不依赖任何外部服务，验证应用能正常处理请求。"""
     resp = client.get("/openapi.json")

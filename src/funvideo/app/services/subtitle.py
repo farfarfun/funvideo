@@ -54,7 +54,7 @@ def create(audio_file: str, subtitle_file: str = "") -> str:
                 f"********************************************\n"
                 f"this may be caused by network issue. \n"
                 f"please download the model manually and put it in the 'models' folder. \n"
-                f"see [README.md FAQ](https://github.com/harry0703/MoneyPrinterTurbo) for more details.\n"
+                f"see [README.md FAQ](https://github.com/farfarfun/funvideo) for more details.\n"
                 f"********************************************\n\n"
             )
             raise SubtitleGenerationError(

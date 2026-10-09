@@ -23,7 +23,12 @@ class VideoAspect(str, Enum):
     portrait = "9:16"
     square = "1:1"
 
-    def to_resolution(self):
+    def to_resolution(self) -> tuple[int, int]:
+        """将视频宽高比转换为对应的像素分辨率。
+
+        Returns:
+            宽度和高度组成的像素元组。
+        """
         if self == VideoAspect.landscape.value:
             return 1920, 1080
         elif self == VideoAspect.portrait.value:
@@ -310,7 +315,7 @@ class BgmRetrieveResponse(BaseResponse):
                         {
                             "name": "output013.mp3",
                             "size": 1891269,
-                            "file": "/MoneyPrinterTurbo/resource/songs/output013.mp3",
+                            "file": "/path/to/funvideo/material/songs/output013.mp3",
                         }
                     ]
                 },
@@ -324,6 +329,6 @@ class BgmUploadResponse(BaseResponse):
             "example": {
                 "status": 200,
                 "message": "success",
-                "data": {"file": "/MoneyPrinterTurbo/resource/songs/example.mp3"},
+                "data": {"file": "/path/to/funvideo/material/songs/example.mp3"},
             },
         }
