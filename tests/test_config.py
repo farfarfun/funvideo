@@ -27,6 +27,21 @@ def test_config_defaults_are_local_and_non_debug(tmp_path):
     assert config.log_level == "INFO"
 
 
+def test_default_config_and_project_metadata_use_funvideo_paths(tmp_path, monkeypatch):
+    """未指定配置时使用用户配置目录和当前包的公开名称。"""
+    from funvideo.app.config.core import Config
+
+    monkeypatch.delenv("FUNVIDEO_CONFIG_FILE", raising=False)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    config = Config()
+
+    assert config.config_file == str(
+        tmp_path / "config" / "farfarfun" / "funvideo" / "config.toml"
+    )
+    assert config.project_name == "funvideo"
+    assert config.project_version == "1.0.25"
+
+
 def test_config_reads_json_and_env(tmp_path):
     """JSON 和简单 KEY=VALUE 配置均能保留嵌套结构与基础类型。"""
     from funvideo.app.config.core import Config

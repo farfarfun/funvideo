@@ -352,8 +352,8 @@ def process_audio_tracks(video_clip: Any, audio_path: str, params: VideoParams) 
                 ]
             )
             audio_clip = CompositeAudioClip([audio_clip, bgm_clip])
-        except Exception as e:
-            logger.error(f"failed to add bgm: {str(e)}")
+        except Exception:
+            logger.exception("failed to add bgm; continuing with the voice track only")
 
     return video_clip.with_audio(audio_clip)
 

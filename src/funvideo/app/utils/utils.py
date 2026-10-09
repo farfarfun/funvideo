@@ -3,6 +3,7 @@ import locale
 import os
 import threading
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
@@ -70,8 +71,12 @@ def get_uuid(remove_hyphen: bool = False) -> str:
 
 
 def root_dir() -> str:
-    """返回当前工作目录对应的项目根路径。"""
-    return "./"
+    """返回应用数据根目录，不依赖服务的启动工作目录。"""
+    configured_path = os.environ.get("FUNVIDEO_DATA_DIR")
+    if configured_path:
+        return str(Path(configured_path).expanduser().resolve())
+    data_home = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
+    return str(data_home / "farfarfun" / "funvideo")
 
 
 def storage_dir(sub_dir: str = "", create: bool = False) -> str:

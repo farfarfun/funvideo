@@ -23,16 +23,16 @@ from funvideo.app.utils import utils
 logger = getLogger("funvideo")
 
 st.set_page_config(
-    page_title="MoneyPrinterTurbo",
+    page_title="funvideo",
     page_icon="🤖",
     layout="wide",
     initial_sidebar_state="auto",
     menu_items={
-        "Report a bug": "https://github.com/harry0703/MoneyPrinterTurbo/issues",
-        "About": "# MoneyPrinterTurbo\nSimply provide a topic or keyword for a video, and it will "
+        "Report a bug": "https://github.com/farfarfun/funvideo/issues",
+        "About": "# funvideo\nSimply provide a topic or keyword for a video, and it will "
         "automatically generate the video copy, video materials, video subtitles, "
         "and video background music before synthesizing a high-definition short "
-        "video.\n\nhttps://github.com/harry0703/MoneyPrinterTurbo",
+        "video.\n\nhttps://github.com/farfarfun/funvideo",
     },
 )
 
@@ -43,7 +43,7 @@ hide_streamlit_style = """
 <style>#root > div:nth-child(1) > div > div > div > div > section > div {padding-top: 0rem;}</style>
 """
 st.markdown(hide_streamlit_style, unsafe_allow_html=True)
-st.title(f"MoneyPrinterTurbo v{config.project_version}")
+st.title(f"funvideo v{config.project_version}")
 
 support_locales = [
     "zh-CN",
@@ -259,8 +259,8 @@ if not config.app.get("hide_config", False):
                            ##### Ollama配置说明
                            - **API Key**: 随便填写，比如 123
                            - **Base Url**: 一般为 http://localhost:11434/v1
-                              - 如果 `MoneyPrinterTurbo` 和 `Ollama` **不在同一台机器上**，需要填写 `Ollama` 机器的IP地址
-                              - 如果 `MoneyPrinterTurbo` 是 `Docker` 部署，建议填写 `http://host.docker.internal:11434/v1`
+                              - 如果 `funvideo` 和 `Ollama` **不在同一台机器上**，需要填写 `Ollama` 机器的IP地址
+                              - 如果 `funvideo` 是 `Docker` 部署，建议填写 `http://host.docker.internal:11434/v1`
                            - **Model Name**: 使用 `ollama list` 查看，比如 `qwen:7b`
                            """
 

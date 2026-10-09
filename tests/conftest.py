@@ -1,12 +1,7 @@
 """pytest 全局配置：为 funvideo 冒烟测试提供隔离的运行环境。
 
-`funvideo.app.config.core.Config` 会在模块导入时基于**当前工作目录**读取
-   `./config.toml`。仓库中并没有随附 `config.example.toml`，因此如果裸跑在
-   仓库根目录下会直接在 import 阶段抛出 ``FileNotFoundError``。
-
 这里通过一个 session 级、autouse 的 fixture：
-- 切换到一个临时目录，并预先放置一个空的 ``config.toml``（各配置项都有默认值，
-  空文件即可正常解析）；
+- 指向隔离的 XDG 配置与数据目录，验证服务不依赖当前工作目录；
 - 替换 ``funai.llm.get_model``，
   避免真实网络请求 / 凭据校验。
 
@@ -25,9 +20,10 @@ import pytest
 @pytest.fixture(scope="session", autouse=True)
 def _funvideo_isolated_env():
     tmp_dir = tempfile.mkdtemp(prefix="funvideo_test_")
-    old_cwd = os.getcwd()
-    os.chdir(tmp_dir)
-    (Path(tmp_dir) / "config.toml").write_text("", encoding="utf-8")
+    old_config_home = os.environ.get("XDG_CONFIG_HOME")
+    old_data_home = os.environ.get("XDG_DATA_HOME")
+    os.environ["XDG_CONFIG_HOME"] = str(Path(tmp_dir) / "config")
+    os.environ["XDG_DATA_HOME"] = str(Path(tmp_dir) / "data")
 
     # 在 funvideo.app.services.llm 被 import 之前，替换真实的大模型构造函数，
     # 避免冒烟测试依赖真实的 DeepSeek/OpenAI 凭据与网络访问。
@@ -40,7 +36,14 @@ def _funvideo_isolated_env():
     try:
         yield mock_model
     finally:
-        os.chdir(old_cwd)
+        if old_config_home is None:
+            os.environ.pop("XDG_CONFIG_HOME", None)
+        else:
+            os.environ["XDG_CONFIG_HOME"] = old_config_home
+        if old_data_home is None:
+            os.environ.pop("XDG_DATA_HOME", None)
+        else:
+            os.environ["XDG_DATA_HOME"] = old_data_home
 
 
 @pytest.fixture(scope="session")

@@ -3,6 +3,7 @@ import os
 import shutil
 import socket
 from collections.abc import Mapping
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +12,20 @@ from farlog import getLogger
 from funsecret import read_secret, write_secret
 
 logger = getLogger("funvideo")
+
+
+def _default_config_file() -> Path:
+    """返回用户级默认配置文件路径。"""
+    config_home = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+    return config_home / "farfarfun" / "funvideo" / "config.toml"
+
+
+def _package_version() -> str:
+    """返回已安装 funvideo 包的版本；源码运行时使用发布版本兜底。"""
+    try:
+        return version("funvideo")
+    except PackageNotFoundError:
+        return "1.0.25"
 
 
 class Config:
@@ -22,7 +37,7 @@ class Config:
         self.config_file = (
             config_file
             if config_file is not None
-            else os.getenv("FUNVIDEO_CONFIG_FILE", "./config.toml")
+            else os.getenv("FUNVIDEO_CONFIG_FILE", str(_default_config_file()))
         )
         self.load_config()
 
@@ -36,9 +51,9 @@ class Config:
         self.log_level = self._cfg.get("log_level", "INFO")
         self.listen_host = self._cfg.get("listen_host", "127.0.0.1")
         self.listen_port = self._cfg.get("listen_port", 8080)
-        self.project_name = self._cfg.get("project_name", "MoneyPrinterTurbo")
+        self.project_name = self._cfg.get("project_name", "funvideo")
         self.project_description = ""
-        self.project_version = self._cfg.get("project_version", "1.2.1")
+        self.project_version = self._cfg.get("project_version", _package_version())
         self.reload_debug = False
 
         imagemagick_path = self.app.get("imagemagick_path", "")

@@ -53,13 +53,17 @@ def get_application() -> FastAPI:
 
 app = get_application()
 
-# Configures the CORS middleware for the FastAPI app
-cors_allowed_origins_str = os.getenv("CORS_ALLOWED_ORIGINS", "")
-origins = cors_allowed_origins_str.split(",") if cors_allowed_origins_str else ["*"]
+def _cors_settings(value: str | None) -> tuple[list[str], bool]:
+    """解析显式 CORS 来源，并返回来源列表和是否允许携带凭据。"""
+    origins = [origin.strip() for origin in (value or "").split(",") if origin.strip()]
+    return origins, bool(origins) and "*" not in origins
+
+
+origins, allow_credentials = _cors_settings(os.getenv("CORS_ALLOWED_ORIGINS"))
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=True,
+    allow_credentials=allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )

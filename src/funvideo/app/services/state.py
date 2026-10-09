@@ -1,5 +1,6 @@
 import ast
 from abc import ABC, abstractmethod
+from typing import Any
 
 from funvideo.app.config import config
 from funvideo.app.models import const
@@ -7,27 +8,50 @@ from funvideo.app.models import const
 
 # Base class for state management
 class BaseState(ABC):
-    @abstractmethod
-    def update_task(self, task_id: str, state: int, progress: int = 0, **kwargs):
-        pass
+    """定义任务状态存储的统一接口。"""
 
     @abstractmethod
-    def get_task(self, task_id: str):
-        pass
+    def update_task(
+        self, task_id: str, state: int, progress: int = 0, **kwargs: Any
+    ) -> None:
+        """更新任务的状态、进度和附加字段。
+
+        Args:
+            task_id: 任务唯一标识。
+            state: 任务状态码。
+            progress: 任务进度，范围为 0 至 100。
+            **kwargs: 要一并保存的附加字段。
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_task(self, task_id: str) -> dict[str, Any] | None:
+        """读取任务状态。
+
+        Args:
+            task_id: 任务唯一标识。
+
+        Returns:
+            任务状态字典；任务不存在时返回 ``None``。
+        """
+        raise NotImplementedError
 
 
 # Memory state management
 class MemoryState(BaseState):
-    def __init__(self):
-        self._tasks = {}
+    """将任务状态保存在当前进程内存中。"""
+
+    def __init__(self) -> None:
+        self._tasks: dict[str, dict[str, Any]] = {}
 
     def update_task(
         self,
         task_id: str,
         state: int = const.TASK_STATE_PROCESSING,
         progress: int = 0,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
+        """更新内存中的任务状态。"""
         progress = int(progress)
         if progress > 100:
             progress = 100
@@ -38,17 +62,32 @@ class MemoryState(BaseState):
             **kwargs,
         }
 
-    def get_task(self, task_id: str):
+    def get_task(self, task_id: str) -> dict[str, Any] | None:
+        """获取内存中的任务状态。"""
         return self._tasks.get(task_id, None)
 
-    def delete_task(self, task_id: str):
+    def delete_task(self, task_id: str) -> None:
+        """删除内存中的指定任务状态。"""
         if task_id in self._tasks:
             del self._tasks[task_id]
 
 
 # Redis state management
 class RedisState(BaseState):
-    def __init__(self, host="localhost", port=6379, db=0, password=None):
+    """将任务状态持久化到 Redis 哈希表。"""
+
+    def __init__(
+        self, host: str = "localhost", port: int = 6379, db: int = 0,
+        password: str | None = None
+    ) -> None:
+        """连接 Redis 状态存储。
+
+        Args:
+            host: Redis 主机地址。
+            port: Redis 端口。
+            db: Redis 数据库编号。
+            password: 可选的 Redis 密码。
+        """
         import redis
 
         self._redis = redis.StrictRedis(host=host, port=port, db=db, password=password)
@@ -58,8 +97,9 @@ class RedisState(BaseState):
         task_id: str,
         state: int = const.TASK_STATE_PROCESSING,
         progress: int = 0,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
+        """更新 Redis 中的任务状态。"""
         progress = int(progress)
         if progress > 100:
             progress = 100
@@ -73,7 +113,8 @@ class RedisState(BaseState):
         for field, value in fields.items():
             self._redis.hset(task_id, field, str(value))
 
-    def get_task(self, task_id: str):
+    def get_task(self, task_id: str) -> dict[str, Any] | None:
+        """获取 Redis 中的任务状态。"""
         task_data = self._redis.hgetall(task_id)
         if not task_data:
             return None
@@ -84,11 +125,12 @@ class RedisState(BaseState):
         }
         return task
 
-    def delete_task(self, task_id: str):
+    def delete_task(self, task_id: str) -> None:
+        """删除 Redis 中的指定任务状态。"""
         self._redis.delete(task_id)
 
     @staticmethod
-    def _convert_to_original_type(value):
+    def _convert_to_original_type(value: bytes) -> Any:
         """
         Convert the value from byte string to its original data type.
         You can extend this method to handle other data types as needed.
